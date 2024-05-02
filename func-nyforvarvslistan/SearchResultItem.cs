@@ -29,6 +29,9 @@ public class Source
     public List<String> Classification { get; set; }
 
     public SearchResultItem SearchResultItem { get; set; }
+
+    [JsonProperty("Translators")]
+    public List<Translator> Translator { get; set; }
 }
 
 
@@ -42,6 +45,7 @@ public class SearchResultItem
 {
    // [JsonConverter(typeof(SingleOrArrayConverter<string>))]
     public List<Author> Author { get; set; }
+    [JsonProperty("x-mtm-narrators")]
     public List<Narrator> Narrator { get; set; }
     public List<Translator> Translator { get; set; }
     public List<Publisher> Publisher { get; set; }
@@ -74,7 +78,7 @@ public class SearchResultItem
     public bool HasText { get; set; }
 
     [JsonProperty("x-mtm-file-size")]
-    public int FileSize { get; set; }
+    public long FileSize { get; set; }
 
     [JsonProperty("x-library-id")]
     public string LibraryId { get; set; }
@@ -94,6 +98,12 @@ public class SearchResultItem
     public bool UnderProduction { get; set; }
     [JsonProperty("x-mtm-extent")]
     public List<string> Extent { get; set; }
+}
+
+public class Item
+{
+    [JsonProperty("translator")]
+    public List<Translator> Translator { get; set; }
 }
 
 public class Author

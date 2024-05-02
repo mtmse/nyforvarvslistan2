@@ -83,7 +83,7 @@ namespace func_nyforvarvslistan
 
             foreach (var ageGroup in groupedByAgeGroup)
             {
-                sectionBuilder.Append($"<section xmlns:epub=\"{EPUB_NAMESPACE}\" epub:type=\"bodymatter\"><section id=\"id_3\"><h1>Litteratur för {TranslateToSwedish(ageGroup.Key)}</h1><section id=\"id_4\">");
+                sectionBuilder.Append($"<section xmlns:epub=\"{EPUB_NAMESPACE}\" epub:type=\"bodymatter\"><section id=\"id_3\"><h1>Böcker för {TranslateToSwedish(ageGroup.Key)}</h1><section id=\"id_4\">");
 
                 var groupedByCategory = ageGroup.GroupBy(b => b.Category).OrderBy(g => CategoryOrder.IndexOf(g.Key));
                 foreach (var categoryGroup in groupedByCategory)
@@ -104,11 +104,11 @@ namespace func_nyforvarvslistan
         {
             var sectionBuilder = new StringBuilder();
             var groupedByAgeGroup = languageGroup.GroupBy(b => b.AgeGroup).OrderBy(g => g.Key == "Adult" ? 0 : 1);
-            sectionBuilder.Append($"<section xmlns:epub=\"{EPUB_NAMESPACE}\" epub:type=\"bodymatter\"><section id=\"id_3\"><h1>Litteratur på andra språk än svenska</h1>");
+            sectionBuilder.Append($"<section xmlns:epub=\"{EPUB_NAMESPACE}\" epub:type=\"bodymatter\"><section id=\"id_3\"><h1>Böcker på andra språk än svenska</h1>");
 
             foreach (var ageGroup in groupedByAgeGroup)
             {
-                sectionBuilder.Append($"<section xmlns:epub=\"{EPUB_NAMESPACE}\" epub:type=\"bodymatter\"><section id=\"id_3\"><h1>Litteratur för {TranslateToSwedish(ageGroup.Key)}</h1></section>");
+                sectionBuilder.Append($"<section xmlns:epub=\"{EPUB_NAMESPACE}\" epub:type=\"bodymatter\"><section id=\"id_3\"><h1>Böcker för {TranslateToSwedish(ageGroup.Key)}</h1></section>");
                 foreach (var book in ageGroup)
                 {
                     sectionBuilder.Append(GenerateBookDetails(book));

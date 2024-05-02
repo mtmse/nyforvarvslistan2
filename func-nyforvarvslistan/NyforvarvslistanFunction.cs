@@ -32,20 +32,21 @@ public static class NyforvarvslistanFunction
     public static void Run([TimerTrigger("0 */1 * * * *")] TimerInfo myTimer, ILogger log)
     {
         log.LogInformation($"Function triggered at: {DateTime.Now}");
-
-        var startDate = Dates.StartOfPreviousMonth.ToElasticsearchFormat();
-        var endDate = Dates.EndOfPreviousMonth.ToElasticsearchFormat();
-        // var targetMonth = DateTime.Now.AddMonths(-2); // Subtracting 2 months from the current month
-        // var startDate = new DateTime(targetMonth.Year, targetMonth.Month, 1); // Start of the target month
-        // var endDate = startDate.AddMonths(1).AddDays(-1).ToElasticsearchFormat(); // End of the target month
+        // var startDate = Dates.StartOfPreviousMonth.ToElasticsearchFormat();
+        // var endDate = Dates.EndOfPreviousMonth.ToElasticsearchFormat();
+        var targetMonth = DateTime.Now.AddMonths(-1); // Subtracting 2 months from the current month
+        var startDate = new DateTime(targetMonth.Year, targetMonth.Month, 1); // Start of the target month
+        var endDate = startDate.AddMonths(1).AddDays(-1); // End of the target month
+        string startDateFormatted = startDate.ToString("yyyy-MM-dd");
+        string endDateFormatted = endDate.ToString("yyyy-MM-dd");
 
         var response = Client.Search<ElasticSearchResponse>(s => s
             .Size(1000)
             .Query(q => q
                 .DateRange(r => r
-                    .Field("PublishedDate")
-                    .GreaterThanOrEquals(startDate)
-                    .LessThanOrEquals(endDate)
+                    .Field("x-mtm-manufactured")
+                    .GreaterThanOrEquals(startDateFormatted)
+                    .LessThanOrEquals(endDateFormatted)
                 )
             )
         );
@@ -55,13 +56,13 @@ public static class NyforvarvslistanFunction
             var source = hit._source;
             var publicationInfo = PublicationInfoExtractor.Extract(source.SearchResultItem.Volume);
 
-            if (!source.SearchResultItem.UnderProduction && !source.SearchResultItem.Remark.Contains("Kurslitteratur"))
+            if (!source.SearchResultItem.UnderProduction && source.SearchResultItem.Remark != null && !source.SearchResultItem.Remark.Contains("Kurslitteratur") && !source.SearchResultItem.Title.Contains("Nya punktskriftsböcker") && !source.SearchResultItem.Title.Contains("Nya talböcker"))
             {
                 return new Book
                 {
                     Authors = source.SearchResultItem.Author ?? new List<Author>(),
                     Narrator = source.SearchResultItem.Narrator ?? new List<Narrator>(),
-                    Translator = source.SearchResultItem.Translator ?? new List<Translator>(),
+                    Translator = source.Translator?.Select(p => new Translator { Name = p.Name }).ToList() ?? new List<Translator>(),
                     PublisherName = source.SearchResultItem.Publisher?.Select(p => new Publisher { Name = p.Name }).ToList() ?? new List<Publisher>(),
                     Title = source.SearchResultItem.Title,
                     CoverHref = source.SearchResultItem.CoverHref,
@@ -85,32 +86,35 @@ public static class NyforvarvslistanFunction
         var talkingBooks = books.Where(b => b.Format == "Talbok" || b.Format == "Talbok med text").ToList();
         var brailleBooks = books.Where(b => b.Format == "Punktskriftsbok").ToList();
 
-        //var bookHtmlGenerator = new HtmlGenerator();
-        //var epubGenerator = new EpubGenerator();
+        Console.WriteLine($"Found {talkingBooks.Count} talking books and {brailleBooks.Count} braille books.");
+
+
+        var bookHtmlGenerator = new HtmlGenerator();
+        var epubGenerator = new EpubGenerator();
         //var pdfGenerator = new PdfGenerator();
         //var docxGenerator = new DocxGenerator();
         var xmlGenerator = new XmlGenerator();
 
         if (talkingBooks.Any())
         {
-            xmlGenerator.SaveToFile(talkingBooks, "nyforvarvslistan-" + Dates.GetCurrentYear(Dates.StartOfPreviousMonth) + "-talbok-" + Dates.GetMonthNameInSwedish(Dates.StartOfPreviousMonth) + ".xml");
-            xmlGenerator.SaveToFile(talkingBooks, "nyforvarvslistan-no-links-" + Dates.GetCurrentYear(Dates.StartOfPreviousMonth) + "-talbok-" + Dates.GetMonthNameInSwedish(Dates.StartOfPreviousMonth) + ".xml");
-            xmlGenerator.SaveToFile(talkingBooks, "nyforvarvslistan-no-links-swedishonly-" + Dates.GetCurrentYear(Dates.StartOfPreviousMonth) + "-talbok-" + Dates.GetMonthNameInSwedish(Dates.StartOfPreviousMonth) + ".xml");
-            //    string talkingBookHtml = bookHtmlGenerator.GenerateHtml(talkingBooks);
+            xmlGenerator.SaveToFile(talkingBooks, "nyf-" + "tb-" + DateTime.Now.Year + "-" + DateTime.Now.Month.ToString("00") + ".xml");
+            xmlGenerator.SaveToFile(talkingBooks, "nyf-" + "tb-" + "no-links-" + DateTime.Now.Year + "-" + DateTime.Now.Month.ToString("00") + ".xml");
+            xmlGenerator.SaveToFile(talkingBooks, "nyf-" + "tb-" + "no-links-swedishonly-" + DateTime.Now.Year + "-" + DateTime.Now.Month.ToString("00") + ".xml");
+                string talkingBookHtml = bookHtmlGenerator.GenerateHtml(talkingBooks);
             //    File.WriteAllText("talkingBook-" + Dates.GetCurrentYear(Dates.StartOfPreviousMonth) + "-" + Dates.GetMonthNameInSwedish(Dates.StartOfPreviousMonth) + ".html", talkingBookHtml);
-            //    epubGenerator.GenerateEpub(talkingBookHtml, "talkingBook-" + Dates.GetCurrentYear(Dates.StartOfPreviousMonth) + "-" + Dates.GetMonthNameInSwedish(Dates.StartOfPreviousMonth) + ".epub");
+                epubGenerator.GenerateEpub(talkingBookHtml, "talkingBook-" + Dates.GetCurrentYear(Dates.StartOfPreviousMonth) + "-" + Dates.GetMonthNameInSwedish(Dates.StartOfPreviousMonth) + ".epub");
             //    pdfGenerator.GeneratePdf(talkingBookHtml, "talkingBook-" + Dates.GetCurrentYear(Dates.StartOfPreviousMonth) + "-" + Dates.GetMonthNameInSwedish(Dates.StartOfPreviousMonth) + ".pdf");
             //    docxGenerator.GenerateDocx("talkingBook-" + Dates.GetCurrentYear(Dates.StartOfPreviousMonth) + "-" + Dates.GetMonthNameInSwedish(Dates.StartOfPreviousMonth) + ".docx", books);
         }
 
         if (brailleBooks.Any())
         {
-            xmlGenerator.SaveToFile(brailleBooks, "nyforvarvslistan-" + Dates.GetCurrentYear(Dates.StartOfPreviousMonth) + "-punktskrift-" + Dates.GetMonthNameInSwedish(Dates.StartOfPreviousMonth) + ".xml");
-            xmlGenerator.SaveToFile(brailleBooks, "nyforvarvslistan-no-links-" + Dates.GetCurrentYear(Dates.StartOfPreviousMonth) + "-punktskrift-" + Dates.GetMonthNameInSwedish(Dates.StartOfPreviousMonth) + ".xml");
-            xmlGenerator.SaveToFile(brailleBooks, "nyforvarvslistan-no-links-swedishonly-" + Dates.GetCurrentYear(Dates.StartOfPreviousMonth) + "-punktskrift-" + Dates.GetMonthNameInSwedish(Dates.StartOfPreviousMonth) + ".xml");
-            //    string brailleBookHtml = bookHtmlGenerator.GenerateHtml(brailleBooks);
+            xmlGenerator.SaveToFile(brailleBooks, "nyf-" + "punkt-" + DateTime.Now.Year + "-" + DateTime.Now.Month.ToString("00") + ".xml");
+            xmlGenerator.SaveToFile(brailleBooks, "nyf-" + "punkt-" + "no-links-" + DateTime.Now.Year + "-" + DateTime.Now.Month.ToString("00") + ".xml");
+            xmlGenerator.SaveToFile(brailleBooks, "nyf-" + "punkt-" + "no-links-swedishonly-" + DateTime.Now.Year + "-" + DateTime.Now.Month.ToString("00") + ".xml");
+                string brailleBookHtml = bookHtmlGenerator.GenerateHtml(brailleBooks);
             //    File.WriteAllText("brailleBook-" + Dates.GetCurrentYear(Dates.StartOfPreviousMonth) + "-" + Dates.GetMonthNameInSwedish(Dates.StartOfPreviousMonth) + ".html", brailleBookHtml);
-            //    epubGenerator.GenerateEpub(brailleBookHtml, "brailleBook-" + Dates.GetCurrentYear(Dates.StartOfPreviousMonth) + "-" + Dates.GetMonthNameInSwedish(Dates.StartOfPreviousMonth) + ".epub");
+                epubGenerator.GenerateEpub(brailleBookHtml, "brailleBook-" + Dates.GetCurrentYear(Dates.StartOfPreviousMonth) + "-" + Dates.GetMonthNameInSwedish(Dates.StartOfPreviousMonth) + ".epub");
             //    pdfGenerator.GeneratePdf(brailleBookHtml, "brailleBook-" + Dates.GetCurrentYear(Dates.StartOfPreviousMonth) + "-" + Dates.GetMonthNameInSwedish(Dates.StartOfPreviousMonth) + ".pdf");
             //    docxGenerator.GenerateDocx("brailleBook-" + Dates.GetCurrentYear(Dates.StartOfPreviousMonth) + "-" + Dates.GetMonthNameInSwedish(Dates.StartOfPreviousMonth) + ".docx", books);
         }
@@ -175,7 +179,7 @@ public static class NyforvarvslistanFunction
         {
             foreach (var classification in classifications)
             {
-                SABDeweyMapper deweyMapper = new SABDeweyMapper("C:\\Users\\ERJO\\source\\repos\\func-nyforvarvslistan\\func-nyforvarvslistan\\Dewey_SAB.txt");
+                SABDeweyMapper deweyMapper = new SABDeweyMapper("C:\\repo\\func-nyforvarvslistan\\func-nyforvarvslistan\\Dewey_SAB.txt");
                 var convertedClassification = deweyMapper.getSabCode(classification);
                 var key = convertedClassification[0].ToString().ToUpper();
                 if (convertedClassification[0] == 'u' && convertedClassification.Length > 1)

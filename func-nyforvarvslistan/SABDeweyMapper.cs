@@ -18,7 +18,12 @@ namespace func_nyforvarvslistan
                 var parts = line.Split('\t');
                 if (parts.Length >= 4)
                 {
-                    deweyToSabMap[parts[2]] = parts[1];
+                    var key = parts[2];
+                    if (!deweyToSabMap.ContainsKey(key))
+                    {
+                        deweyToSabMap[key] = parts[1];
+                    }
+
                 }
             }
         }
@@ -28,6 +33,7 @@ namespace func_nyforvarvslistan
             {
                 return deweyToSabMap[deweyCode];
             }
+
             while (deweyCode.Length > 0)
             {
                 deweyCode = deweyCode.Remove(deweyCode.Length - 1);
@@ -35,6 +41,7 @@ namespace func_nyforvarvslistan
                 {
                     return deweyToSabMap[deweyCode];
                 }
+
             }
             return null;
         }
