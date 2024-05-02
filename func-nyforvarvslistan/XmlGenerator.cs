@@ -111,9 +111,10 @@ namespace func_nyforvarvslistan
                 {
                     // Braille books: "4 volymer (290 sidor)" -> "4 vol., 290 s"
                     var volumeMatch = Regex.Match(extentString, @"(\d+)\s+volymer");
-                    var pagesMatch = Regex.Match(extentString, @"\((\d+)\s+sidor\)");
+                    var pagesMatch = Regex.Match(extentString, @"(\d+)\s+sidor");
 
-                    string volumes = volumeMatch.Success ? volumeMatch.Groups[1].Value + " vol." : "";
+                    // Default to "1 vol." if no volume match is found
+                    string volumes = volumeMatch.Success ? volumeMatch.Groups[1].Value + " vol." : "1 vol.";
                     string pages = pagesMatch.Success ? ", " + pagesMatch.Groups[1].Value + " s" : "";
 
                     formattedExtent = volumes + pages;
