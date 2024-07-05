@@ -172,7 +172,7 @@ public static class NyforvarvslistanFunction
         {
             if (book.PublicationCategory.FirstOrDefault() == "Fiction")
             {
-                book.Category = "SkÃ¶nlitteratur";
+                book.Category = "Skönlitteratur";
             }
         }
 
@@ -252,7 +252,7 @@ public static class NyforvarvslistanFunction
             { "From", new JObject { { "Email", "erik.johansson@mtm.se" }, { "Name", "Erik Johansson" } } },
             { "To", new JArray { new JObject { { "Email", emailAddress }, { "Name", "Otto Ewald" } } } },
             { "Subject", "Genererade xml-filer" },
-            { "TextPart", "HÃ¤r kommer filerna." }
+            { "TextPart", "Här kommer filerna." }
         };
 
         var attachments = new JArray();
