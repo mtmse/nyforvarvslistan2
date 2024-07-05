@@ -20,8 +20,13 @@ jobs:
       id-token: write #This is required for requesting the JWT
 
     steps:
-      - name: 'Checkout GitHub Action'
-        uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        with:
+          # Ensure that the token has access to the repository
+          token: ${{ secrets.GITHUB_TOKEN }}
+          # Fetch all history for all tags and branches
+          fetch-depth: 0
 
       - name: Setup DotNet ${{ env.DOTNET_VERSION }} Environment
         uses: actions/setup-dotnet@v1
