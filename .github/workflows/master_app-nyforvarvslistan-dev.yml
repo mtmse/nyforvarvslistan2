@@ -23,9 +23,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v2
         with:
-          # Ensure that the token has access to the repository
+          repository: mtmse/nyforvarvslistan2
           token: ${{ secrets.GITHUB_TOKEN }}
-          # Fetch all history for all tags and branches
           fetch-depth: 0
 
       - name: Setup DotNet ${{ env.DOTNET_VERSION }} Environment
