@@ -15,6 +15,7 @@ namespace func_nyforvarvslistan
         public List<Translator> Translator { get; set; }
         public List<Publisher> PublisherName { get; set; }
         public List<String> Extent { get; set; }
+        public List<String> PublicationCategory { get; set; }
         public string Title { get; set; }
         public string CoverHref { get; set; }
         public string Description { get; set; }

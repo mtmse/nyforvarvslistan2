@@ -27,6 +27,7 @@ public class Hit
 public class Source
 {
     public List<String> Classification { get; set; }
+    public List<String> PublicationCategories { get; set; }
 
     public SearchResultItem SearchResultItem { get; set; }
 

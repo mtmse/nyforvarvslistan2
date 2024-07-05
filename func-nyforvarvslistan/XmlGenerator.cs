@@ -95,7 +95,13 @@ namespace func_nyforvarvslistan
 
 
                 var narratorsString = string.Join(", ", modifiedNarrators);
-                authorAndPublishingDetails += $"Inläst av {narratorsString}. ";
+                if (narratorsString.Equals("talsyntes")) {
+                    authorAndPublishingDetails += $"Inläst med {narratorsString}. ";
+                } else
+                {
+                    authorAndPublishingDetails += $"Inläst av {narratorsString}. ";
+                }
+                
             }
 
             if (!string.IsNullOrEmpty(authorAndPublishingDetails))
@@ -184,13 +190,28 @@ namespace func_nyforvarvslistan
 
         public XElement GenerateSwedishSectionXml(IEnumerable<Book> languageGroup, string toLinkOrNotToLink)
         {
-            var section = new XElement(ns + "level1");
+            foreach (var book in languageGroup)
+            {
+                if (book.PublicationCategory.FirstOrDefault() == "Fiction")
+                {
+                    book.Category = "Skönlitteratur";
+                }
+            }
+
+            XElement section = null;
             var groupedByAgeGroup = languageGroup.GroupBy(b => b.AgeGroup).OrderBy(g => g.Key == "Adult" ? 0 : 1);
             foreach (var ageGroup in groupedByAgeGroup)
             {
                 var ageGroupLevel = new XElement(ns + "level1", new XElement(ns + "h1", $"Böcker för {TranslateToSwedish(ageGroup.Key)}"));
                 var fackGroupLevel = new XElement(ns + "level2", new XElement(ns + "h2", "Faktaböcker"));
-                section.Add(ageGroupLevel);
+                if (section == null)
+                {
+                    section = ageGroupLevel;
+                }
+                else
+                {
+                    section.Add(ageGroupLevel);
+                }
 
                 var groupedByCategory = ageGroup.GroupBy(b => b.Category).OrderBy(g => CategoryOrder.IndexOf(g.Key));
                 bool hasFacklitteratur = groupedByCategory.Any(g => g.Key != "Skönlitteratur");
@@ -208,9 +229,9 @@ namespace func_nyforvarvslistan
                         foreach (var book in orderedBooks)
                         {
                             var bookDetails = GenerateBookDetailsXml(book, 3, toLinkOrNotToLink);
-                            var level = new XElement(ns + "level3");
-                            level.Add(bookDetails);
-                            categoryLevel.Add(level);
+                            // var level = new XElement(ns + "level3");
+                            // level.Add(bookDetails);
+                            categoryLevel.Add(bookDetails);
                         }
                         ageGroupLevel.Add(categoryLevel);
                     }
@@ -227,9 +248,9 @@ namespace func_nyforvarvslistan
                         foreach (var book in orderedBooks)
                         {
                             var bookDetails = GenerateBookDetailsXml(book, 4, toLinkOrNotToLink);
-                            var level = new XElement(ns + "level4");
-                            level.Add(bookDetails);
-                            categoryLevel.Add(level);
+                            //var level = new XElement(ns + "level4");
+                            //level.Add(bookDetails);
+                            categoryLevel.Add(bookDetails);
                         }
                         fackGroupLevel.Add(categoryLevel);
                     }
@@ -331,6 +352,14 @@ namespace func_nyforvarvslistan
         }
         public XElement GenerateNonSwedishSectionXml(IEnumerable<Book> languageGroup, string toLinkOrNotToLink)
         {
+            foreach (var book in languageGroup)
+            {
+                if (book.PublicationCategory.FirstOrDefault() == "Fiction")
+                {
+                    book.Category = "Skönlitteratur";
+                }
+            }
+
             var section = new XElement(ns + "level1", new XElement(ns + "h1", "Böcker på andra språk än svenska"));
 
             var groupedByAgeGroup = languageGroup.GroupBy(b => b.AgeGroup).OrderBy(g => g.Key == "Adult" ? 0 : 1);
@@ -348,9 +377,9 @@ namespace func_nyforvarvslistan
                 foreach (var book in orderedBooks)
                 {
                     var bookDetails = GenerateBookDetailsXml(book, 3, toLinkOrNotToLink);
-                    var level = new XElement(ns + "level3");
-                    level.Add(bookDetails);
-                    ageGroupLevel.Add(level);
+                    //var level = new XElement(ns + "level3");
+                    //level.Add(bookDetails);
+                    ageGroupLevel.Add(bookDetails);
                 }
             }
 
