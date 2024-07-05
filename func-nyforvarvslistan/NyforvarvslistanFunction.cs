@@ -179,7 +179,7 @@ public static class NyforvarvslistanFunction
         {
             foreach (var classification in classifications)
             {
-                string filePath = Path.Combine(Environment.CurrentDirectory, "Dewey_SAB.txt");
+                string filePath = Path.Combine(Environment.CurrentDirectory, "func-nyforvarvslistan/Dewey_SAB.txt");
                 SABDeweyMapper deweyMapper = new SABDeweyMapper(filePath);
                 var convertedClassification = deweyMapper.getSabCode(classification);
                 var key = convertedClassification[0].ToString().ToUpper();
