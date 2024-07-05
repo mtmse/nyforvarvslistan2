@@ -240,6 +240,7 @@ public static class NyforvarvslistanFunction
         if (generatedFiles.Any())
         {
             SendEmailWithAttachments(generatedFiles.ToArray(), "erik.johansson@mtm.se");
+            SendEmailWithAttachments(generatedFiles.ToArray(), "otto.ewald@mtm.se");
         }
     }
 
