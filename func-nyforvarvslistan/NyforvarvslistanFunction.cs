@@ -56,7 +56,7 @@ public static class NyforvarvslistanFunction
             var source = hit._source;
             var publicationInfo = PublicationInfoExtractor.Extract(source.SearchResultItem.Volume);
 
-            if (!source.SearchResultItem.UnderProduction && source.SearchResultItem.Remark != null && !source.SearchResultItem.Remark.Contains("Kurslitteratur") && !source.SearchResultItem.Title.Contains("Nya punktskriftsbˆcker") && !source.SearchResultItem.Title.Contains("Nya talbˆcker"))
+            if (!source.SearchResultItem.UnderProduction && source.SearchResultItem.Remark != null && !source.SearchResultItem.Remark.Contains("Kurslitteratur") && !source.SearchResultItem.Title.Contains("Nya punktskriftsb√∂cker") && !source.SearchResultItem.Title.Contains("Nya talb√∂cker"))
             {
                 return new Book
                 {
@@ -122,31 +122,31 @@ public static class NyforvarvslistanFunction
 
     private static readonly Dictionary<string, string> sabCategories = new Dictionary<string, string>
     {
-        { "A", "Bok- och biblioteksv‰sen" },
-        { "B", "Allm‰nt och blandat" },
+        { "A", "Bok- och biblioteksv√§sen" },
+        { "B", "Allm√§nt och blandat" },
         { "C", "Religion" },
         { "D", "Filosofi och psykologi" },
         { "E", "Uppfostran och undervisning" },
-        { "F", "SprÂkvetenskap" },
+        { "F", "Spr√•kvetenskap" },
         { "G", "Litteraturvetenskap" },
-        { "H", "Skˆnlitteratur" },
+        { "H", "Sk√∂nlitteratur" },
         { "I", "Konst, musik, teater, film, fotografi" },
         { "J", "Arkeologi" },
         { "K", "Historia" },
         { "L", "Biografi med genealogi" },
         { "M", "Etnografi, socialantropologi och etnologi" },
         { "N", "Geografi och lokalhistoria" },
-        { "O", "Samh‰lls- och r‰ttsvetenskap" },
+        { "O", "Samh√§lls- och r√§ttsvetenskap" },
         { "P", "Teknik, industri och kommunikationer" },
-        { "Q", "Ekonomi och n‰ringsv‰sen" },
+        { "Q", "Ekonomi och n√§ringsv√§sen" },
         { "R", "Idrott, lek och spel" },
-        { "S", "Milit‰rv‰sen" },
+        { "S", "Milit√§rv√§sen" },
         { "T", "Matematik" },
         { "U", "Naturvetenskap" },
         { "V", "Medicin" },
         { "X", "Musikalier" },
         { "Y", "Musikinspelningar" },
-        { "ƒ", "Tidningar" }
+        { "√Ñ", "Tidningar" }
     };
 
     public static string ToElasticsearchFormat(this DateTime date)
@@ -156,7 +156,7 @@ public static class NyforvarvslistanFunction
     private static string getCategoryBasedOnClassification(List<string> classifications)
     {
         if (classifications == null || !classifications.Any())
-            return "Allm‰nt och blandat";
+            return "Allm√§nt och blandat";
 
         string category = null;
         foreach (var classification in classifications)
@@ -179,7 +179,8 @@ public static class NyforvarvslistanFunction
         {
             foreach (var classification in classifications)
             {
-                SABDeweyMapper deweyMapper = new SABDeweyMapper("C:\\repo\\func-nyforvarvslistan\\func-nyforvarvslistan\\Dewey_SAB.txt");
+                string filePath = Path.Combine(Environment.CurrentDirectory, "Dewey_SAB.txt");
+                SABDeweyMapper deweyMapper = new SABDeweyMapper(filePath);
                 var convertedClassification = deweyMapper.getSabCode(classification);
                 var key = convertedClassification[0].ToString().ToUpper();
                 if (convertedClassification[0] == 'u' && convertedClassification.Length > 1)
@@ -194,6 +195,6 @@ public static class NyforvarvslistanFunction
             }
         }
 
-        return category ?? "Allm‰nt och blandat";
+        return category ?? "Allm√§nt och blandat";
     }
 }
