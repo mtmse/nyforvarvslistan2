@@ -343,7 +343,7 @@ public static class NyforvarvslistanFunction
         if (category == null)  //Use Dewey, and match the Dewey classification to an SAB one, if no SAB classification was found
         {
             string filePath;
-            if (Environment.GetEnvironmentVariable("WEBSITE_INSTANCE_ID") != null)
+            if (Environment.GetEnvironmentVariable("WEBSITE_CONTENTSHARE") != null)
             {
                 // Running in Azure
                 filePath = Path.Combine(AppContext.BaseDirectory, "Dewey_SAB.txt");
