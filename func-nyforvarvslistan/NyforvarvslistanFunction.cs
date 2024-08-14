@@ -1,26 +1,18 @@
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Net;
-using System.Net.Mail;
-using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-using System.Xml.Linq;
 using Azure;
 using Azure.Data.Tables;
-using Azure.Storage.Blobs;
 using func_nyforvarvslistan;
 using Mailjet.Client;
 using Mailjet.Client.Resources;
 using Microsoft.Azure.WebJobs;
 using Microsoft.Extensions.Logging;
-using Microsoft.WindowsAzure.Storage.Table;
 using Nest;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using PdfSharpCore.Pdf.Content.Objects;
 
 public static class NyforvarvslistanFunction
 {
@@ -47,11 +39,11 @@ public static class NyforvarvslistanFunction
     private static readonly ElasticClient Client = new ElasticClient(ConnectionSettings);
 
     [FunctionName("NyforvarvslistanFunction")]
-    public static void Run([TimerTrigger("0 0 0 * * *", RunOnStartup = true)] TimerInfo myTimer, ILogger log)
+    public static void Run([TimerTrigger("0 0 7 * * *", RunOnStartup = true)] TimerInfo myTimer, ILogger log)
     {
         try
         {
-            if (DateTime.UtcNow.Day == 1)
+            if (DateTime.UtcNow.Day == 14)
             {
                 SetBackMinervaLastRun(log);
                 Task.Delay(30000).Wait();
@@ -240,7 +232,7 @@ public static class NyforvarvslistanFunction
         if (generatedFiles.Any())
         {
             SendEmailWithAttachments(generatedFiles.ToArray(), "erik.johansson@mtm.se");
-            SendEmailWithAttachments(generatedFiles.ToArray(), "otto.ewald@mtm.se");
+            // SendEmailWithAttachments(generatedFiles.ToArray(), "otto.ewald@mtm.se");
         }
     }
 
@@ -350,9 +342,19 @@ public static class NyforvarvslistanFunction
 
         if (category == null)  //Use Dewey, and match the Dewey classification to an SAB one, if no SAB classification was found
         {
+            string filePath;
+            if (Environment.GetEnvironmentVariable("WEBSITE_INSTANCE_ID") != null)
+            {
+                // Running in Azure
+                filePath = Path.Combine(AppContext.BaseDirectory, "Dewey_SAB.txt");
+            }
+            else
+            {
+                // Running locally
+                filePath = Path.Combine(Environment.CurrentDirectory, "Dewey_SAB.txt");
+            }
             foreach (var classification in classifications)
             {
-                string filePath = Path.Combine(Environment.CurrentDirectory, "Dewey_SAB.txt");
                 SABDeweyMapper deweyMapper = new SABDeweyMapper(filePath);
                 var convertedClassification = deweyMapper.getSabCode(classification);
                 var key = convertedClassification[0].ToString().ToUpper();
@@ -368,6 +370,6 @@ public static class NyforvarvslistanFunction
             }
         }
 
-        return category ?? "Allm√§nt och blandat";
+        return category ?? "Allm‰nt och blandat";
     }
 }

@@ -153,7 +153,7 @@ namespace func_nyforvarvslistan
                 case "Adult":
                     return "vuxna";
                 case "Juvenile":
-                    return "barn";
+                    return "barn och ungdom";
                 default:
                     return ageGroupKey.ToLower();
             }

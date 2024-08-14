@@ -33,7 +33,7 @@ namespace func_nyforvarvslistan
                         .SpacingAfter(20)
                         .Font(new Xceed.Document.NET.Font("Arial"))
                         .Culture(new CultureInfo("sv-SE"));
-                document.InsertParagraph("Listan är uppdelad i 3 delar; Böcker för vuxna, Böcker för Barn och Böcker på andra språk än svenska, vilka ligger på nivå 1. Böcker för vuxna och Böcker för barn är uppdelade mellan Skönlitteratur och Faktaböcker respektive Faktaböcker. Dessa avsnitt ligger på nivå 2. Böcker på andra språk än svenska är uppdelade mellan Böcker för vuxna och Böcker för barn. Boktitlarna ligger på nivå 3 i avsnitten Skönlitteratur och Böcker på andra språk än svenska, medan de ligger på nivå 4 i avsnitten Faktaböcker och Faktaböcker. På Nivå 3 i avsnitten Faktaböcker och Faktaböcker finns de olika fackavdelningarna.")
+                document.InsertParagraph("Listan är uppdelad i 3 delar; Böcker för vuxna, Böcker för barn och ungdom och Böcker på andra språk än svenska, vilka ligger på nivå 1. Böcker för vuxna och Böcker för barn och ungdom är uppdelade mellan Skönlitteratur och Faktaböcker respektive Faktaböcker. Dessa avsnitt ligger på nivå 2. Böcker på andra språk än svenska är uppdelade mellan Böcker för vuxna och Böcker för barn och ungdom. Boktitlarna ligger på nivå 3 i avsnitten Skönlitteratur och Böcker på andra språk än svenska, medan de ligger på nivå 4 i avsnitten Faktaböcker och Faktaböcker. På Nivå 3 i avsnitten Faktaböcker och Faktaböcker finns de olika fackavdelningarna.")
                         .FontSize(13.5)
                         .SpacingAfter(20)
                         .Font(new Xceed.Document.NET.Font("Arial"))

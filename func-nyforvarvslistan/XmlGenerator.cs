@@ -271,7 +271,7 @@ namespace func_nyforvarvslistan
                 case "Adult":
                     return "vuxna";
                 case "Juvenile":
-                    return "barn";
+                    return "barn och ungdom";
                 default:
                     return ageGroupKey.ToLower();
             }
@@ -301,9 +301,9 @@ namespace func_nyforvarvslistan
             frontmatter.Add(new XElement(ns + "doctitle", title));
             var introLevel1 = new XElement(ns + "level1",
                 new XElement(ns + "h1", "Inledning"),
-                new XElement(ns + "p", "Listan är uppdelad i 3 delar; Böcker för vuxna, Böcker för Barn och Böcker på andra språk än svenska. Dessa ligger på rubriknivå 1."),
-                new XElement(ns + "p", "Böcker för vuxna är uppdelad i avsnitten Skönlitteratur och Faktaböcker. Böcker för barn är uppdelad i avsnitten Skönlitteratur och Faktaböcker. Dessa avsnitt ligger på rubriknivå 2."),
-                new XElement(ns + "p", "Böcker på andra språk än svenska är uppdelade mellan Böcker för vuxna och Böcker för barn. Dessa avsnitt ligger också på rubriknivå 2."),
+                new XElement(ns + "p", "Listan är uppdelad i 3 delar; Böcker för vuxna, Böcker för barn och ungdom och Böcker på andra språk än svenska. Dessa ligger på rubriknivå 1."),
+                new XElement(ns + "p", "Böcker för vuxna är uppdelad i avsnitten Skönlitteratur och Faktaböcker. Böcker för barn och ungdom är uppdelad i avsnitten Skönlitteratur och Faktaböcker. Dessa avsnitt ligger på rubriknivå 2."),
+                new XElement(ns + "p", "Böcker på andra språk än svenska är uppdelade mellan Böcker för vuxna och Böcker för barn och ungdom. Dessa avsnitt ligger också på rubriknivå 2."),
                 new XElement(ns + "p", "Avsnitten för Faktaböcker är indelade i olika ämnen. Ämnesrubrikerna ligger på rubriknivå 3."),
                 new XElement(ns + "p", $"Listan omfattar {books.Count()} titlar.")
             );
