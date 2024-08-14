@@ -346,7 +346,7 @@ public static class NyforvarvslistanFunction
             if (Environment.GetEnvironmentVariable("WEBSITE_CONTENTSHARE") != null)
             {
                 // Running in Azure
-                filePath = Path.Combine(AppContext.BaseDirectory, "Dewey_SAB.txt");
+                filePath = Path.Combine(Directory.GetCurrentDirectory(), "Dewey_SAB.txt");
             }
             else
             {
