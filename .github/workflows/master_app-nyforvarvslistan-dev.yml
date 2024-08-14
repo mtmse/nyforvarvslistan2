@@ -45,7 +45,10 @@ jobs:
             echo "Dewey_SAB.txt is missing from the output directory"
             exit 1
           fi
-      
+
+      - name: List output directory contents
+        run: ls -la ./output
+        
       - name: Login to Azure
         uses: azure/login@v1
         with:
