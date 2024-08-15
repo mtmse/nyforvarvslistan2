@@ -107,7 +107,7 @@ public static class NyforvarvslistanFunction
             throw; // Rethrow the exception to be caught by the outer catch block if needed
         }
     }
-    public static void CreateLists(ILogger log) 
+    public static void CreateLists(ILogger log)
     {
         log.LogInformation($"Function triggered at: {DateTime.Now}");
         // var startDate = Dates.StartOfPreviousMonth.ToElasticsearchFormat();
@@ -181,6 +181,30 @@ public static class NyforvarvslistanFunction
         //var pdfGenerator = new PdfGenerator();
         //var docxGenerator = new DocxGenerator();
         var xmlGenerator = new XmlGenerator();
+        if (Environment.GetEnvironmentVariable("WEBSITE_CONTENTSHARE") != null)
+        {
+            if (talkingBooks.Any())
+            {
+                string tempPath = Path.GetTempPath();
+
+                xmlGenerator.SaveToFile(talkingBooks, Path.Combine(tempPath, "nyf-tb-" + DateTime.Now.Year + "-" + DateTime.Now.Month.ToString("00") + ".xml"));
+                xmlGenerator.SaveToFile(talkingBooks, Path.Combine(tempPath, "nyf-tb-no-links-" + DateTime.Now.Year + "-" + DateTime.Now.Month.ToString("00") + ".xml"));
+                xmlGenerator.SaveToFile(talkingBooks, Path.Combine(tempPath, "nyf-tb-no-links-swedishonly-" + DateTime.Now.Year + "-" + DateTime.Now.Month.ToString("00") + ".xml"));
+
+                // Additional processing, such as uploading to Blob Storage, goes here
+            }
+
+            if (brailleBooks.Any())
+            {
+                string tempPath = Path.GetTempPath();
+
+                xmlGenerator.SaveToFile(brailleBooks, Path.Combine(tempPath, "nyf-punkt-" + DateTime.Now.Year + "-" + DateTime.Now.Month.ToString("00") + ".xml"));
+                xmlGenerator.SaveToFile(brailleBooks, Path.Combine(tempPath, "nyf-punkt-no-links-" + DateTime.Now.Year + "-" + DateTime.Now.Month.ToString("00") + ".xml"));
+                xmlGenerator.SaveToFile(brailleBooks, Path.Combine(tempPath, "nyf-punkt-no-links-swedishonly-" + DateTime.Now.Year + "-" + DateTime.Now.Month.ToString("00") + ".xml"));
+
+                // Additional processing, such as uploading to Blob Storage, goes here
+            }
+        } else {
 
         if (talkingBooks.Any())
         {
@@ -205,6 +229,7 @@ public static class NyforvarvslistanFunction
             //    pdfGenerator.GeneratePdf(brailleBookHtml, "brailleBook-" + Dates.GetCurrentYear(Dates.StartOfPreviousMonth) + "-" + Dates.GetMonthNameInSwedish(Dates.StartOfPreviousMonth) + ".pdf");
             //    docxGenerator.GenerateDocx("brailleBook-" + Dates.GetCurrentYear(Dates.StartOfPreviousMonth) + "-" + Dates.GetMonthNameInSwedish(Dates.StartOfPreviousMonth) + ".docx", books);
         }
+    }
         List<string> generatedFiles = new List<string>();
         if (Environment.GetEnvironmentVariable("WEBSITE_CONTENTSHARE") != null)
         {
