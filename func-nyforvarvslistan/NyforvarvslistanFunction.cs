@@ -43,7 +43,7 @@ public static class NyforvarvslistanFunction
     {
         try
         {
-            if (DateTime.UtcNow.Day == 14)
+            if (DateTime.UtcNow.Day == 15)
             {
                 SetBackMinervaLastRun(log);
                 Task.Delay(30000).Wait();
