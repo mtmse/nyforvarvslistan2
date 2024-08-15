@@ -45,7 +45,9 @@ public static class NyforvarvslistanFunction
     {
         try
         {
-            if (DateTime.UtcNow.Day == 15)
+            bool isStartup = myTimer.IsPastDue;
+
+            if (isStartup || DateTime.UtcNow.Day == 1)
             {
                 SetBackMinervaLastRun(log);
                 Task.Delay(30000).Wait();
