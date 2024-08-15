@@ -345,7 +345,6 @@ public static class NyforvarvslistanFunction
         if (category == null)  // Use Dewey, and match the Dewey classification to an SAB one, if no SAB classification was found
         {
             string fileContent = null;
-            string storageConnectionString = Environment.GetEnvironmentVariable("storageConnectionString");
             string containerName = "nyforvarvslistan";
             string blobName = "Dewey_SAB.txt";
             SABDeweyMapper deweyMapper = null;
