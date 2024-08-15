@@ -5,6 +5,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using Azure;
 using Azure.Data.Tables;
+using Azure.Storage.Blobs.Models;
+using Azure.Storage.Blobs;
 using func_nyforvarvslistan;
 using Mailjet.Client;
 using Mailjet.Client.Resources;
@@ -340,22 +342,59 @@ public static class NyforvarvslistanFunction
             }
         }
 
-        if (category == null)  //Use Dewey, and match the Dewey classification to an SAB one, if no SAB classification was found
+        if (category == null)  // Use Dewey, and match the Dewey classification to an SAB one, if no SAB classification was found
         {
-            string filePath;
+            string fileContent = null;
+            string storageConnectionString = Environment.GetEnvironmentVariable("storageConnectionString");
+            string containerName = "nyforvarvslistan";
+            string blobName = "Dewey_SAB.txt";
+            SABDeweyMapper deweyMapper = null;
+
             if (Environment.GetEnvironmentVariable("WEBSITE_CONTENTSHARE") != null)
             {
-                // Running in Azure
-                filePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "../Dewey_SAB.txt");
+                // Running in Azure, read from Blob Storage
+                try
+                {
+                    BlobServiceClient blobServiceClient = new BlobServiceClient(storageConnectionString);
+                    BlobContainerClient containerClient = blobServiceClient.GetBlobContainerClient(containerName);
+                    BlobClient blobClient = containerClient.GetBlobClient(blobName);
+
+                    if (blobClient.Exists())
+                    {
+                        BlobDownloadInfo download = blobClient.Download();
+                        using (var reader = new StreamReader(download.Content, true))
+                        {
+                            fileContent = reader.ReadToEnd();
+                        }
+                    }
+                    else
+                    {
+                        throw new FileNotFoundException($"Blob '{blobName}' not found in container '{containerName}'.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Handle exception, log error, or rethrow as necessary
+                    throw new InvalidOperationException("Error reading Dewey_SAB.txt from Blob Storage", ex);
+                }
+
+                if (fileContent != null)
+                {
+                    deweyMapper = new SABDeweyMapper(fileContent);
+                    // Continue processing with deweyMapper
+                }
             }
             else
             {
                 // Running locally
-                filePath = Path.Combine(Environment.CurrentDirectory, "Dewey_SAB.txt");
+                string filePath = Path.Combine(Environment.CurrentDirectory, "Dewey_SAB.txt");
+                deweyMapper = new SABDeweyMapper(filePath, true);
+                // Continue processing with deweyMapper
             }
+
+            // Process classifications using deweyMapper
             foreach (var classification in classifications)
             {
-                SABDeweyMapper deweyMapper = new SABDeweyMapper(filePath);
                 var convertedClassification = deweyMapper.getSabCode(classification);
                 var key = convertedClassification[0].ToString().ToUpper();
                 if (convertedClassification[0] == 'u' && convertedClassification.Length > 1)
@@ -369,6 +408,7 @@ public static class NyforvarvslistanFunction
                 }
             }
         }
+
 
         return category ?? "Allmänt och blandat";
     }
