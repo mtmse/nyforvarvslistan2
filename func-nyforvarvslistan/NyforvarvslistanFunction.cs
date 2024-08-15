@@ -206,30 +206,64 @@ public static class NyforvarvslistanFunction
             //    docxGenerator.GenerateDocx("brailleBook-" + Dates.GetCurrentYear(Dates.StartOfPreviousMonth) + "-" + Dates.GetMonthNameInSwedish(Dates.StartOfPreviousMonth) + ".docx", books);
         }
         List<string> generatedFiles = new List<string>();
-
-        if (talkingBooks.Any())
+        if (Environment.GetEnvironmentVariable("WEBSITE_CONTENTSHARE") != null)
         {
-            string talkingBooksFile = "nyf-tb-" + DateTime.Now.Year + "-" + DateTime.Now.Month.ToString("00") + ".xml";
-            generatedFiles.Add(talkingBooksFile);
+            if (talkingBooks.Any())
+            {
+                string tempPath = Path.GetTempPath();
 
-            string talkingBooksNoLinksFile = "nyf-tb-no-links-" + DateTime.Now.Year + "-" + DateTime.Now.Month.ToString("00") + ".xml";
-            generatedFiles.Add(talkingBooksNoLinksFile);
+                string talkingBooksFile = Path.Combine(tempPath, $"nyf-tb-{DateTime.Now:yyyy-MM}.xml");
+                generatedFiles.Add(talkingBooksFile);
 
-            string talkingBooksSwedishOnlyFile = "nyf-tb-no-links-swedishonly-" + DateTime.Now.Year + "-" + DateTime.Now.Month.ToString("00") + ".xml";
-            generatedFiles.Add(talkingBooksSwedishOnlyFile);
+                string talkingBooksNoLinksFile = Path.Combine(tempPath, $"nyf-tb-no-links-{DateTime.Now:yyyy-MM}.xml");
+                generatedFiles.Add(talkingBooksNoLinksFile);
+
+                string talkingBooksSwedishOnlyFile = Path.Combine(tempPath, $"nyf-tb-no-links-swedishonly-{DateTime.Now:yyyy-MM}.xml");
+                generatedFiles.Add(talkingBooksSwedishOnlyFile);
+            }
+
+            if (brailleBooks.Any())
+            {
+                string tempPath = Path.GetTempPath();
+
+                string brailleBooksFile = Path.Combine(tempPath, $"nyf-punkt-{DateTime.Now:yyyy-MM}.xml");
+                generatedFiles.Add(brailleBooksFile);
+
+                string brailleBooksNoLinksFile = Path.Combine(tempPath, $"nyf-punkt-no-links-{DateTime.Now:yyyy-MM}.xml");
+                generatedFiles.Add(brailleBooksNoLinksFile);
+
+                string brailleBooksSwedishOnlyFile = Path.Combine(tempPath, $"nyf-punkt-no-links-swedishonly-{DateTime.Now:yyyy-MM}.xml");
+                generatedFiles.Add(brailleBooksSwedishOnlyFile);
+            }
+        }
+        else
+        {
+            if (talkingBooks.Any())
+            {
+                string talkingBooksFile = "nyf-tb-" + DateTime.Now.Year + "-" + DateTime.Now.Month.ToString("00") + ".xml";
+                generatedFiles.Add(talkingBooksFile);
+
+                string talkingBooksNoLinksFile = "nyf-tb-no-links-" + DateTime.Now.Year + "-" + DateTime.Now.Month.ToString("00") + ".xml";
+                generatedFiles.Add(talkingBooksNoLinksFile);
+
+                string talkingBooksSwedishOnlyFile = "nyf-tb-no-links-swedishonly-" + DateTime.Now.Year + "-" + DateTime.Now.Month.ToString("00") + ".xml";
+                generatedFiles.Add(talkingBooksSwedishOnlyFile);
+            }
+
+            if (brailleBooks.Any())
+            {
+                string brailleBooksFile = "nyf-punkt-" + DateTime.Now.Year + "-" + DateTime.Now.Month.ToString("00") + ".xml";
+                generatedFiles.Add(brailleBooksFile);
+
+                string brailleBooksNoLinksFile = "nyf-punkt-no-links-" + DateTime.Now.Year + "-" + DateTime.Now.Month.ToString("00") + ".xml";
+                generatedFiles.Add(brailleBooksNoLinksFile);
+
+                string brailleBooksSwedishOnlyFile = "nyf-punkt-no-links-swedishonly-" + DateTime.Now.Year + "-" + DateTime.Now.Month.ToString("00") + ".xml";
+                generatedFiles.Add(brailleBooksSwedishOnlyFile);
+            }
         }
 
-        if (brailleBooks.Any())
-        {
-            string brailleBooksFile = "nyf-punkt-" + DateTime.Now.Year + "-" + DateTime.Now.Month.ToString("00") + ".xml";
-            generatedFiles.Add(brailleBooksFile);
 
-            string brailleBooksNoLinksFile = "nyf-punkt-no-links-" + DateTime.Now.Year + "-" + DateTime.Now.Month.ToString("00") + ".xml";
-            generatedFiles.Add(brailleBooksNoLinksFile);
-
-            string brailleBooksSwedishOnlyFile = "nyf-punkt-no-links-swedishonly-" + DateTime.Now.Year + "-" + DateTime.Now.Month.ToString("00") + ".xml";
-            generatedFiles.Add(brailleBooksSwedishOnlyFile);
-        }
 
         if (generatedFiles.Any())
         {
