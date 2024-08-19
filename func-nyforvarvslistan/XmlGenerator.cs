@@ -190,6 +190,7 @@ namespace func_nyforvarvslistan
 
         public XElement GenerateSwedishSectionXml(IEnumerable<Book> languageGroup, string toLinkOrNotToLink)
         {
+            /*
             foreach (var book in languageGroup)
             {
                 if (book.PublicationCategory.FirstOrDefault() == "Fiction")
@@ -197,6 +198,7 @@ namespace func_nyforvarvslistan
                     book.Category = "Skönlitteratur";
                 }
             }
+            */
 
             XElement section = null;
             var groupedByAgeGroup = languageGroup.GroupBy(b => b.AgeGroup).OrderBy(g => g.Key == "Adult" ? 0 : 1);
@@ -352,13 +354,15 @@ namespace func_nyforvarvslistan
         }
         public XElement GenerateNonSwedishSectionXml(IEnumerable<Book> languageGroup, string toLinkOrNotToLink)
         {
-            foreach (var book in languageGroup)
+            /*
+             * foreach (var book in languageGroup)
             {
                 if (book.PublicationCategory.FirstOrDefault() == "Fiction")
                 {
                     book.Category = "Skönlitteratur";
                 }
             }
+            */
 
             var section = new XElement(ns + "level1", new XElement(ns + "h1", "Böcker på andra språk än svenska"));
 

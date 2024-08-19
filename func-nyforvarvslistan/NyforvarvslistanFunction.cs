@@ -39,23 +39,26 @@ public static class NyforvarvslistanFunction
         });
 
     private static readonly ElasticClient Client = new ElasticClient(ConnectionSettings);
+    private static DateTime? lastRunDate = null;
 
     [FunctionName("NyforvarvslistanFunction")]
     public static void Run([TimerTrigger("0 0 7 * * *", RunOnStartup = true)] TimerInfo myTimer, ILogger log)
     {
         try
         {
-            bool isStartup = myTimer.IsPastDue;
-
-            if (isStartup || DateTime.UtcNow.Day == 1)
+            if (lastRunDate != DateTime.UtcNow.Date && DateTime.UtcNow.Day == 1)
             {
+                lastRunDate = DateTime.UtcNow.Date;
+
                 SetBackMinervaLastRun(log);
                 Task.Delay(30000).Wait();
                 CreateLists(log);
+
+                log.LogInformation("CreateLists executed successfully.");
             }
             else
             {
-                SetBackMinervaLastRun(log);
+                log.LogInformation("CreateLists has already run today. Skipping execution.");
             }
         }
         catch (RequestFailedException ex)
@@ -149,7 +152,7 @@ public static class NyforvarvslistanFunction
                     Description = source.SearchResultItem.Description,
                     LibraryId = source.SearchResultItem.LibraryId,
                     Category = getCategoryBasedOnClassification(source.Classification),
-                    PublicationCategory = source.PublicationCategories,
+                    // PublicationCategory = source.PublicationCategories,
                     AgeGroup = (source.SearchResultItem.AgeGroup == "Adult" || source.SearchResultItem.AgeGroup == "General") ? "Adult" : "Juvenile",
                     Language = source.SearchResultItem.Language,
                     LibrisId = source.SearchResultItem.LibrisId,
@@ -164,13 +167,16 @@ public static class NyforvarvslistanFunction
         }).Where(book => book != null)
           .ToList();
 
-        foreach (var book in books)
+        /*
+         * foreach (var book in books)
         {
             if (book.PublicationCategory.FirstOrDefault() == "Fiction")
             {
                 book.Category = "Skönlitteratur";
             }
         }
+        */
+
 
         var talkingBooks = books.Where(b => b.Format == "Talbok" || b.Format == "Talbok med text").ToList();
         var brailleBooks = books.Where(b => b.Format == "Punktskriftsbok").ToList();
@@ -295,7 +301,7 @@ public static class NyforvarvslistanFunction
         if (generatedFiles.Any())
         {
             SendEmailWithAttachments(generatedFiles.ToArray(), "erik.johansson@mtm.se");
-            // SendEmailWithAttachments(generatedFiles.ToArray(), "otto.ewald@mtm.se");
+            SendEmailWithAttachments(generatedFiles.ToArray(), "otto.ewald@mtm.se");
         }
     }
 
