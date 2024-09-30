@@ -40,6 +40,7 @@ public static class NyforvarvslistanFunction
 
     private static readonly ElasticClient Client = new ElasticClient(ConnectionSettings);
     private static DateTime? lastRunDate = null;
+    private static DateTime? lastCreateListsRunDate = null;
 
     [FunctionName("NyforvarvslistanFunction")]
     public static void Run([TimerTrigger("0 0 7 * * *", RunOnStartup = true)] TimerInfo myTimer, ILogger log)
@@ -48,13 +49,52 @@ public static class NyforvarvslistanFunction
         {
             if (lastRunDate != DateTime.UtcNow.Date && DateTime.UtcNow.Day == 1)
             {
-                lastRunDate = DateTime.UtcNow.Date;
-
                 SetBackMinervaLastRun(log);
-                Task.Delay(30000).Wait();
-                CreateLists(log);
 
-                log.LogInformation("CreateLists executed successfully.");
+                // Get current UTC time
+                DateTime currentUtcTime = DateTime.UtcNow;
+
+                // Convert UTC to desired time zone (e.g., Central European Time)
+                TimeZoneInfo targetTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Central European Standard Time"); // Adjust as needed
+                DateTime currentLocalTime = TimeZoneInfo.ConvertTimeFromUtc(currentUtcTime, targetTimeZone);
+
+                // Define the desired execution time (7:30 am local time)
+                TimeSpan desiredTime = new TimeSpan(7, 30, 0);
+
+                // Define a time window (e.g., 7:25 am to 7:35 am)
+                TimeSpan windowStart = desiredTime.Add(TimeSpan.FromMinutes(-5));
+                TimeSpan windowEnd = desiredTime.Add(TimeSpan.FromMinutes(5));
+
+                // Get current local time of day
+                TimeSpan currentTimeOfDay = currentLocalTime.TimeOfDay;
+
+                // Check if current time is within the window
+                bool isWithinWindow = currentTimeOfDay >= windowStart && currentTimeOfDay <= windowEnd;
+
+                // Check if CreateLists hasn't run today
+                bool hasNotRunToday = !lastCreateListsRunDate.HasValue || lastCreateListsRunDate.Value.Date < currentLocalTime.Date;
+
+                if (isWithinWindow && hasNotRunToday)
+                {
+                    // Execute CreateLists
+                    CreateLists(log);
+
+                    // Update the last run date
+                    lastCreateListsRunDate = currentLocalTime.Date;
+
+                    log.LogInformation("CreateLists executed successfully at around 7:30 am local time.");
+                }
+                else
+                {
+                    if (!isWithinWindow)
+                    {
+                        log.LogInformation("Outside the execution window for CreateLists. Skipping execution.");
+                    }
+                    else
+                    {
+                        log.LogInformation("CreateLists has already run today. Skipping execution.");
+                    }
+                }
             }
             else
             {
@@ -139,7 +179,7 @@ public static class NyforvarvslistanFunction
             var source = hit._source;
             var publicationInfo = PublicationInfoExtractor.Extract(source.SearchResultItem.Volume);
 
-            if (!source.SearchResultItem.UnderProduction && source.SearchResultItem.Remark != null && !source.SearchResultItem.Remark.Contains("Kurslitteratur") && !source.SearchResultItem.Title.Contains("Nya punktskriftsb√∂cker") && !source.SearchResultItem.Title.Contains("Nya talb√∂cker"))
+            if (!source.SearchResultItem.UnderProduction && source.SearchResultItem.Remark != null && !source.SearchResultItem.Remark.Contains("Kurslitteratur") && !source.SearchResultItem.Title.Contains("Nya punktskriftsbˆcker") && !source.SearchResultItem.Title.Contains("Nya talbˆcker"))
             {
                 return new Book
                 {
@@ -153,7 +193,7 @@ public static class NyforvarvslistanFunction
                     LibraryId = source.SearchResultItem.LibraryId,
                     Category = getCategoryBasedOnClassification(source.Classification),
                     // PublicationCategory = source.PublicationCategories,
-                    AgeGroup = (source.SearchResultItem.AgeGroup == "Adult" || source.SearchResultItem.AgeGroup == "General") ? "Adult" : "Juvenile",
+                    AgeGroup = (source.AgeGroup == "Adult" || source.AgeGroup == "General") ? "Adult" : "Juvenile",
                     Language = source.SearchResultItem.Language,
                     LibrisId = source.SearchResultItem.LibrisId,
                     Format = source.SearchResultItem.Format,
@@ -356,31 +396,31 @@ public static class NyforvarvslistanFunction
 
     private static readonly Dictionary<string, string> sabCategories = new Dictionary<string, string>
     {
-        { "A", "Bok- och biblioteksv√§sen" },
-        { "B", "Allm√§nt och blandat" },
+        { "A", "Bok- och biblioteksv‰sen" },
+        { "B", "Allm‰nt och blandat" },
         { "C", "Religion" },
         { "D", "Filosofi och psykologi" },
         { "E", "Uppfostran och undervisning" },
-        { "F", "Spr√•kvetenskap" },
+        { "F", "SprÂkvetenskap" },
         { "G", "Litteraturvetenskap" },
-        { "H", "Sk√∂nlitteratur" },
+        { "H", "Skˆnlitteratur" },
         { "I", "Konst, musik, teater, film, fotografi" },
         { "J", "Arkeologi" },
         { "K", "Historia" },
         { "L", "Biografi med genealogi" },
         { "M", "Etnografi, socialantropologi och etnologi" },
         { "N", "Geografi och lokalhistoria" },
-        { "O", "Samh√§lls- och r√§ttsvetenskap" },
+        { "O", "Samh‰lls- och r‰ttsvetenskap" },
         { "P", "Teknik, industri och kommunikationer" },
-        { "Q", "Ekonomi och n√§ringsv√§sen" },
+        { "Q", "Ekonomi och n‰ringsv√§sen" },
         { "R", "Idrott, lek och spel" },
-        { "S", "Milit√§rv√§sen" },
+        { "S", "Milit‰rv√§sen" },
         { "T", "Matematik" },
         { "U", "Naturvetenskap" },
         { "V", "Medicin" },
         { "X", "Musikalier" },
         { "Y", "Musikinspelningar" },
-        { "√Ñ", "Tidningar" }
+        { "Z", "Tidningar" }
     };
 
     public static string ToElasticsearchFormat(this DateTime date)
@@ -390,7 +430,7 @@ public static class NyforvarvslistanFunction
     private static string getCategoryBasedOnClassification(List<string> classifications)
     {
         if (classifications == null || !classifications.Any())
-            return "Allm√§nt och blandat";
+            return "Allm‰nt och blandat";
 
         string category = null;
         foreach (var classification in classifications)
