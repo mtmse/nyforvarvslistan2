@@ -245,7 +245,12 @@ namespace func_nyforvarvslistan
                     section.Add(ageGroupLevel);
                 }
 
-                var groupedByCategory = ageGroup.GroupBy(b => b.Category).OrderBy(g => CategoryOrder.IndexOf(g.Key));
+                var groupedByCategory = ageGroup
+                    .GroupBy(b => b.Category.Equals("Skönlitteratur", StringComparison.OrdinalIgnoreCase)
+                                  ? "Skönlitteratur"
+                                  : "Facklitteratur")
+                    .OrderBy(g => CategoryOrder.IndexOf(g.Key));
+
                 bool hasFacklitteratur = groupedByCategory.Any(g => g.Key != "Skönlitteratur");
                 foreach (var categoryGroup in groupedByCategory)
                 {

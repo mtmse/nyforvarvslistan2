@@ -40,7 +40,6 @@ public static class NyforvarvslistanFunction
 
     private static readonly ElasticClient Client = new ElasticClient(ConnectionSettings);
     private static DateTime? lastRunDate = null;
-    private static DateTime? lastCreateListsRunDate = null;
 
     [FunctionName("NyforvarvslistanFunction")]
     public static void Run([TimerTrigger("0 0 7 * * *", RunOnStartup = true)] TimerInfo myTimer, ILogger log)
@@ -49,52 +48,13 @@ public static class NyforvarvslistanFunction
         {
             if (lastRunDate != DateTime.UtcNow.Date && DateTime.UtcNow.Day == 1)
             {
+                lastRunDate = DateTime.UtcNow.Date;
+
                 SetBackMinervaLastRun(log);
+                // Task.Delay(30000).Wait();
+                CreateLists(log);
 
-                // Get current UTC time
-                DateTime currentUtcTime = DateTime.UtcNow;
-
-                // Convert UTC to desired time zone (e.g., Central European Time)
-                TimeZoneInfo targetTimeZone = TimeZoneInfo.FindSystemTimeZoneById("Central European Standard Time"); // Adjust as needed
-                DateTime currentLocalTime = TimeZoneInfo.ConvertTimeFromUtc(currentUtcTime, targetTimeZone);
-
-                // Define the desired execution time (7:30 am local time)
-                TimeSpan desiredTime = new TimeSpan(7, 30, 0);
-
-                // Define a time window (e.g., 7:25 am to 7:35 am)
-                TimeSpan windowStart = desiredTime.Add(TimeSpan.FromMinutes(-5));
-                TimeSpan windowEnd = desiredTime.Add(TimeSpan.FromMinutes(5));
-
-                // Get current local time of day
-                TimeSpan currentTimeOfDay = currentLocalTime.TimeOfDay;
-
-                // Check if current time is within the window
-                bool isWithinWindow = currentTimeOfDay >= windowStart && currentTimeOfDay <= windowEnd;
-
-                // Check if CreateLists hasn't run today
-                bool hasNotRunToday = !lastCreateListsRunDate.HasValue || lastCreateListsRunDate.Value.Date < currentLocalTime.Date;
-
-                if (isWithinWindow && hasNotRunToday)
-                {
-                    // Execute CreateLists
-                    CreateLists(log);
-
-                    // Update the last run date
-                    lastCreateListsRunDate = currentLocalTime.Date;
-
-                    log.LogInformation("CreateLists executed successfully at around 7:30 am local time.");
-                }
-                else
-                {
-                    if (!isWithinWindow)
-                    {
-                        log.LogInformation("Outside the execution window for CreateLists. Skipping execution.");
-                    }
-                    else
-                    {
-                        log.LogInformation("CreateLists has already run today. Skipping execution.");
-                    }
-                }
+                log.LogInformation("CreateLists executed successfully.");
             }
             else
             {
