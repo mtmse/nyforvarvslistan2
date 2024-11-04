@@ -46,7 +46,7 @@ public static class NyforvarvslistanFunction
     {
         try
         {
-            if (lastRunDate != DateTime.UtcNow.Date && DateTime.UtcNow.Day == 1)
+            if (lastRunDate != DateTime.UtcNow.Date && DateTime.UtcNow.Day == 4)
             {
                 lastRunDate = DateTime.UtcNow.Date;
 
