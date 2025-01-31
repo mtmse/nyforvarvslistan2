@@ -575,7 +575,7 @@ public static class NyforvarvslistanFunction
         foreach (var book in booksProd)
         {
             var bookId = book.LibraryId;
-
+            log.LogInformation($"Searching for book {bookId} in Elasticsearch.");
             if (book.LibraryId == null || book.LibraryId == "" || !book.LibraryId.StartsWith("C"))
             {
                 bookId = book.PSNo;
