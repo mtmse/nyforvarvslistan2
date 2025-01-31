@@ -78,7 +78,7 @@ public static class NyforvarvslistanFunction
         log.LogInformation($"Found {booksProduction.Count} books in production.");
 
         // SetBackMinervaLastRun(log);
-        Task.Delay(300).Wait();
+
         var generatedFiles = CreateLists(log, booksProduction);
 
         try
@@ -577,7 +577,7 @@ public static class NyforvarvslistanFunction
             string bookId;
 
             // If LibraryId is non-null/non-empty, we use that; otherwise we default to PSNo.
-            if (!string.IsNullOrEmpty(book.LibraryId))
+            if (!string.IsNullOrWhiteSpace(book.LibraryId))
             {
                 bookId = book.LibraryId;
             }
@@ -587,7 +587,7 @@ public static class NyforvarvslistanFunction
             }
 
             // 2. If after that logic, bookId is empty, we skip
-            if (string.IsNullOrEmpty(bookId))
+            if (string.IsNullOrWhiteSpace(bookId))
             {
                 log.LogWarning("Book ID is missing. Skipping book.");
                 log.LogWarning($"Book: {JsonConvert.SerializeObject(book)}");
