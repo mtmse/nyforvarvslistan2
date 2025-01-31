@@ -578,11 +578,11 @@ public static class NyforvarvslistanFunction
             try
             {
                 searchResponse = await client.SearchAsync<Book>(s => s
-                    .Index("opds-1.1.0")    // add if your index is "opds-1.1.0"
+                    .Index("opds-1.1.0")
                     .Query(q => q
-                        .Match(m => m
-                            .Field("_id")  // searching the _id field
-                            .Query(bookId)
+                        .Term(t => t
+                            .Field("_id")
+                            .Value(bookId)
                         )
                     )
                 );
