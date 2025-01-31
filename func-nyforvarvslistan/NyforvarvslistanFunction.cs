@@ -576,12 +576,12 @@ public static class NyforvarvslistanFunction
         {
             var bookId = book.LibraryId;
             log.LogInformation($"Searching for book {bookId} in Elasticsearch.");
-            if (book.LibraryId == null || book.LibraryId == "" || !book.LibraryId.StartsWith("C"))
+            if (!book.LibraryId.StartsWith("C"))
             {
                 bookId = book.PSNo;
             }
 
-            if (bookId == null || bookId == "")
+            if (!book.LibraryId.StartsWith("C") || !book.LibraryId.StartsWith("P"))
             {
                 log.LogWarning("Book ID is missing. Skipping book.");
                 log.LogWarning($"Book: {JsonConvert.SerializeObject(book)}");
