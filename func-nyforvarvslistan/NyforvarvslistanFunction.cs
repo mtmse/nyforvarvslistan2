@@ -598,14 +598,14 @@ public static class NyforvarvslistanFunction
 
             var client = new ElasticClient(settings);
 
-            var searchResponse = client.Search<Book>(s => s
+            var searchResponse = client.SearchAsync<Book>(s => s
                 .Query(q => q
                     .Match(m => m
                         .Field("_id")
                         .Query(bookId)
                     )
                 )
-            );
+            ).Result;
 
             var deserializedResponse = JsonConvert.DeserializeObject<ElasticSearchResponse>(rawResponse);
             var books = deserializedResponse.Hits.hits.FirstOrDefault()._source;
