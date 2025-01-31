@@ -581,6 +581,13 @@ public static class NyforvarvslistanFunction
                 bookId = book.PSNo;
             }
 
+            if (bookId == null || bookId == "")
+            {
+                log.LogWarning("Book ID is missing. Skipping book.");
+                log.LogWarning($"Book: {JsonConvert.SerializeObject(book)}");
+                continue;
+            }
+
             var response = Client.Search<ElasticSearchResponse>(s => s
                 .Index("opds-1.1.0")
                 .Query(q => q
