@@ -31,6 +31,9 @@ public class Source
 
     public SearchResultItem SearchResultItem { get; set; }
 
+    [JsonProperty("Editors")]
+    public List<Editor> Editors { get; set; }
+
     [JsonProperty("Translators")]
     public List<Translator> Translator { get; set; }
     [JsonProperty("TargetAudience")]
@@ -89,6 +92,8 @@ public class SearchResultItem
     public string LibrisId { get; set; }
     [JsonProperty("x-mtm-description")]
     public string Description { get; set; }
+    [JsonProperty("x-target-audience")]
+    public string TargetAudience { get; set; }
     [JsonProperty("x-mtm-format")]
     public string Format { get; set; }
     [JsonProperty("x-mtm-volume")]
@@ -99,6 +104,15 @@ public class SearchResultItem
     public bool UnderProduction { get; set; }
     [JsonProperty("x-mtm-extent")]
     public List<String> Extent { get; set; }
+}
+
+public class Editor
+{
+    [JsonProperty("name")]
+    public string Name
+    {
+        get; set;
+    }
 }
 
 public class Item

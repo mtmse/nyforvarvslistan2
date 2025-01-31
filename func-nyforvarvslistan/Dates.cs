@@ -1,4 +1,5 @@
-﻿using System;
+﻿using func_nyforvarvslistan.Models;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -34,17 +35,17 @@ namespace func_nyforvarvslistan
             return date.ToString("MMMM", new CultureInfo("sv-SE"));
         }
 
-        public static string GetFormattedBookTitle(string bookFormat, DateTime referenceDate)
+        public static string GetFormattedBookTitle(string libraryId, DateTime referenceDate)
         {
             string monthName = GetMonthNameInSwedish(referenceDate).ToLower();
             string year = referenceDate.Year.ToString();
 
             string title;
-            if (bookFormat == "Talkbok" || bookFormat == "Talbok med text")
+            if (libraryId.StartsWith("C"))
             {
                 title = $"Nya talböcker {monthName} {year}";
             }
-            else if (bookFormat == "Punktskriftsbok")
+            else if (libraryId.StartsWith("P"))
             {
                 title = $"Nya punktskriftsböcker {monthName} {year}";
             }
