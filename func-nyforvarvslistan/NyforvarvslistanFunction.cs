@@ -570,6 +570,8 @@ public static class NyforvarvslistanFunction
     }
     public static List<(string FileName, byte[] Content)> CreateLists(ILogger log, List<Book> booksProd)
     {
+        log.LogInformation("Running CreateLists method.");
+        log.LogInformation($"Found {booksProd.Count} books in production.");
         foreach (var book in booksProd)
         {
             var bookId = book.LibraryId;
@@ -580,7 +582,7 @@ public static class NyforvarvslistanFunction
             }
 
             var response = Client.Search<ElasticSearchResponse>(s => s
-                .Index("opds-1.1.0-ej")
+                .Index("opds-1.1.0")
                 .Query(q => q
                     .Match(m => m
                         .Field("_id")
@@ -588,7 +590,9 @@ public static class NyforvarvslistanFunction
                     )
                 )
             );
-            
+
+            log.LogInformation($"Elasticsearch returned {response.Documents.Count} documents for book {bookId}.");
+
             var deserializedResponse = JsonConvert.DeserializeObject<ElasticSearchResponse>(rawResponse);
             var books = deserializedResponse.Hits.hits.FirstOrDefault()._source;
             if (books != null)
