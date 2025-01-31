@@ -610,7 +610,11 @@ public static class NyforvarvslistanFunction
                 {
                     List<Author> authors = new List<Author>();
                     Author author = new Author();
-                    author.Name = books.Editors.FirstOrDefault().Name;
+                    var firstEditor = books.Editors?.FirstOrDefault();
+                    if (firstEditor != null)
+                    {
+                        author.Name = firstEditor.Name;
+                    }
                     author.IsPrimaryContributor = true;
                     authors.Add(author);
                     book.Author = authors;
