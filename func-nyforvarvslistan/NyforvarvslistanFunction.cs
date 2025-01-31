@@ -598,8 +598,6 @@ public static class NyforvarvslistanFunction
                 )
             );
 
-            log.LogInformation($"Elasticsearch returned {response.Documents.Count} documents for book {bookId}.");
-
             var deserializedResponse = JsonConvert.DeserializeObject<ElasticSearchResponse>(rawResponse);
             var books = deserializedResponse.Hits.hits.FirstOrDefault()._source;
             if (books != null)
