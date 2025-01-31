@@ -574,19 +574,27 @@ public static class NyforvarvslistanFunction
         log.LogInformation($"Found {booksProd.Count} books in production.");
         foreach (var book in booksProd)
         {
-            var bookId = book.LibraryId;
-            log.LogInformation($"Searching for book {bookId} in Elasticsearch.");
-            if (!book.LibraryId.StartsWith("C"))
+            string bookId;
+
+            // If LibraryId is non-null/non-empty, we use that; otherwise we default to PSNo.
+            if (!string.IsNullOrEmpty(book.LibraryId))
+            {
+                bookId = book.LibraryId;
+            }
+            else
             {
                 bookId = book.PSNo;
             }
 
-            if (!book.LibraryId.StartsWith("C") && !book.LibraryId.StartsWith("P"))
+            // 2. If after that logic, bookId is empty, we skip
+            if (string.IsNullOrEmpty(bookId))
             {
                 log.LogWarning("Book ID is missing. Skipping book.");
                 log.LogWarning($"Book: {JsonConvert.SerializeObject(book)}");
                 continue;
             }
+
+            log.LogInformation($"Searching for book {bookId} in Elasticsearch.");
 
             var response = Client.Search<ElasticSearchResponse>(s => s
                 .Index("opds-1.1.0")
