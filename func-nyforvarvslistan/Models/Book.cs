@@ -6,18 +6,16 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace func_nyforvarvslistan
+namespace func_nyforvarvslistan.Models
 {
     public class Book
     {
-        public List<Author> Authors { get; set; }
-        public List<Narrator> Narrator { get; set; }
-        public List<Translator> Translator { get; set; }
-        public List<Publisher> PublisherName { get; set; }
-        public List<String> Extent { get; set; }
-        // public List<String> PublicationCategory { get; set; }
+        public string Narrator { get; set; }
+        public string Extent { get; set; }
+        public List<Author> Author { get; set; }
+        public string Translator { get; set; }
+        public string Publisher { get; set; }
         public string Title { get; set; }
-        public string CoverHref { get; set; }
         public string Description { get; set; }
         public string LibraryId { get; set; }
         public string Category { get; set; }
@@ -27,14 +25,24 @@ namespace func_nyforvarvslistan
         public string Format { get; set; }
         public string City { get; set; }
         public string PublishingCompany { get; set; }
-        public string PublishedYear { get; set; }
+        public int PublishedYear { get; set; }
+        public string Notes { get; set; }
+        public string Comments { get; set; }
+        public string PSNo { get; set; }
+        public string Classification { get; set; }
+        public string SubType { get; set; }
+        public int NoPages { get; internal set; }
+        public string PlayTime { get; internal set; }
+        public int NoVolumes { get; internal set; }
+        public int NoPagesXML { get; internal set; }
+        public int NoPagesPS { get; internal set; }
     }
 
     public class SingleOrArrayConverter<T> : JsonConverter
     {
         public override bool CanConvert(Type objectType)
         {
-            return (objectType == typeof(List<T>));
+            return objectType == typeof(List<T>);
         }
 
         public override object ReadJson(JsonReader reader, Type objectType, object existingValue, JsonSerializer serializer)
