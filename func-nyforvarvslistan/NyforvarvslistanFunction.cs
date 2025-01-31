@@ -75,7 +75,8 @@ public static class NyforvarvslistanFunction
 
         var booksProduction = await GetProductionTitles(pssDict);
 
-        
+        log.LogInformation($"Found {booksProduction.Count} books in production.");
+
         SetBackMinervaLastRun(log);
         Task.Delay(300).Wait();
         var generatedFiles = CreateLists(log, booksProduction);
