@@ -627,12 +627,14 @@ public static class NyforvarvslistanFunction
 
                 if (book.Format == "Punktskrift") book.Format = "Tryckt punktskrift";
 
-                if (book.Classification == null || book.Classification == "")
+                if ((book.Classification == null || book.Classification == "")
+                    && books.Classification != null
+                    && books.Classification.Any())
                 {
                     book.Classification = books.Classification.FirstOrDefault();
                 }
 
-                if(books.AgeGroup != "Adult")
+                if (books.AgeGroup != "Adult")
                 {
                     book.AgeGroup = "Juvenile";
                 }
