@@ -77,7 +77,7 @@ public static class NyforvarvslistanFunction
 
         log.LogInformation($"Found {booksProduction.Count} books in production.");
 
-        SetBackMinervaLastRun(log);
+        // SetBackMinervaLastRun(log);
         Task.Delay(300).Wait();
         var generatedFiles = CreateLists(log, booksProduction);
 
