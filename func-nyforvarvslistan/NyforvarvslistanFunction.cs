@@ -518,46 +518,6 @@ public static class NyforvarvslistanFunction
         return allRoutes;
     }
 
-    private static async Task SetBackMinervaLastRun(ILogger log)
-    {
-        log.LogInformation("Running SetBackMinervaLastRun method.");
-        try
-        {
-        var tableClient = new TableClient(storageConnectionString, tableName);
-
-        string partitionKey = "Minerva";
-        string rowKey = "Timestamp";
-
-        var entity = await tableClient.GetEntityAsync<Azure.Data.Tables.TableEntity>(partitionKey, rowKey);
-        var tableEntity = entity.Value;
-
-        DateTime newTimestamp = DateTime.UtcNow.AddHours(-24);
-        string formattedTimestamp = newTimestamp.ToString("yyyy-MM-ddTHH:mm:sszzz");
-
-
-            if (tableEntity.ContainsKey("last_successful_run"))
-        {
-            tableEntity["last_successful_run"] = formattedTimestamp;
-        }
-        else
-        {
-            tableEntity.Add("last_successful_run", formattedTimestamp);
-        }
-
-        await tableClient.UpdateEntityAsync(tableEntity, tableEntity.ETag, TableUpdateMode.Replace);
-        log.LogInformation("Table Storage last_successful_run timestamp updated successfully.");
-        }
-        catch (RequestFailedException ex)
-        {
-            log.LogError($"Request to Table Storage failed: {ex.Message}");
-            throw; // Rethrow the exception to be caught by the outer catch block if needed
-        }
-        catch (Exception ex)
-        {
-            log.LogError($"An error occurred while updating the Table Storage: {ex.Message}");
-            throw; // Rethrow the exception to be caught by the outer catch block if needed
-        }
-    }
     public static async Task<List<(string FileName, byte[] Content)>> CreateLists(
     ILogger log,
     List<Book> booksProd)
@@ -596,8 +556,6 @@ public static class NyforvarvslistanFunction
                 continue;
             }
 
-            log.LogInformation($"Searching for book {bookId} in Elasticsearch.");
-
             // 3. Local variable for rawResponse
             var rawResponse = string.Empty;
 
@@ -615,16 +573,25 @@ public static class NyforvarvslistanFunction
             var client = new ElasticClient(settings);
 
             // 5. Use 'await' instead of '.Result'
-            var searchResponse = await client.SearchAsync<Book>(s => s
-                .Index("opds-1.1.0")    // add if your index is "opds-1.1.0"
-                .Query(q => q
-                    .Match(m => m
-                        .Field("_id")  // searching the _id field
-                        .Query(bookId)
+            ISearchResponse<Book> searchResponse = null;
+            log.LogInformation($"(DEBUG) Searching ES with bookId=[{bookId ?? "<null>"}], length={bookId?.Length ?? -1}");
+            try
+            {
+                searchResponse = await client.SearchAsync<Book>(s => s
+                    .Index("opds-1.1.0")    // add if your index is "opds-1.1.0"
+                    .Query(q => q
+                        .Match(m => m
+                            .Field("_id")  // searching the _id field
+                            .Query(bookId)
+                        )
                     )
-                )
-            );
-
+                );
+            }
+            catch (Exception ex)
+            {
+                log.LogError($"Failed to search for bookId={bookId}: {ex.Message}");
+                continue;
+            }
             // Optional: Check if ES call is valid
             if (!searchResponse.IsValid)
             {
@@ -791,56 +758,6 @@ public static class NyforvarvslistanFunction
         return generatedFiles;
     }
 
-
-    public static async void SendEmailWithAttachments(string[] filePaths, string emailAddress)
-    {
-        var client = new MailjetClient("8fc6ccd381fcb4ec47dc2980c44a99de", "e3f4b681f0dad6c3aa27fa3702d71449");
-
-        var message = new JObject
-        {
-            { "From", new JObject { { "Email", "erik.johansson@mtm.se" }, { "Name", "Erik Johansson" } } },
-            { "To", new JArray { new JObject { { "Email", emailAddress }, { "Name", "Otto Ewald" } } } },
-            { "Subject", "Genererade xml-filer" },
-            { "TextPart", "Här kommer filerna." }
-        };
-
-        var attachments = new JArray();
-        foreach (var filePath in filePaths)
-        {
-            if (File.Exists(filePath))
-            {
-                var fileContent = Convert.ToBase64String(File.ReadAllBytes(filePath));
-                var attachment = new JObject
-            {
-                { "ContentType", "application/xml" },
-                { "Filename", Path.GetFileName(filePath) },
-                { "Base64Content", fileContent }
-            };
-                attachments.Add(attachment);
-            }
-        }
-
-        message["Attachments"] = attachments;
-
-        var request = new MailjetRequest
-        {
-            Resource = SendV31.Resource
-        }
-        .Property(Send.Messages, new JArray { message });
-
-        var response = await client.PostAsync(request);
-        if (response.IsSuccessStatusCode)
-        {
-            Console.WriteLine("Email sent successfully.");
-        }
-        else
-        {
-            Console.WriteLine($"Failed to send email. Status code: {response.StatusCode}, Error: {response.GetErrorMessage()}");
-            Console.WriteLine(response.GetData());
-        }
-    }
-
-
     private static readonly Dictionary<string, string> sabCategories = new Dictionary<string, string>
     {
         { "A", "Bok- och biblioteksväsen" },
@@ -869,100 +786,4 @@ public static class NyforvarvslistanFunction
         { "Y", "Musikinspelningar" },
         { "Z", "Tidningar" }
     };
-
-    public static string ToElasticsearchFormat(this DateTime date)
-    {
-        return date.ToString("yyyy-MM-dd'T'HH:mm:ss.fffK");
-    }
-    private static string getCategoryBasedOnClassification(List<string> classifications)
-    {
-        if (classifications == null || !classifications.Any())
-            return "Allmänt och blandat";
-
-        string category = null;
-        foreach (var classification in classifications)
-        {
-            if (string.IsNullOrEmpty(classification)) continue;
-
-            var key = classification[0].ToString().ToUpper();
-            if (classification[0] == 'u' && classification.Length > 1)
-            {
-                key = classification[1].ToString().ToUpper();
-            }
-
-            if (sabCategories.TryGetValue(key, out category))
-            {
-                break;
-            }
-        }
-
-        if (category == null)  // Use Dewey, and match the Dewey classification to an SAB one, if no SAB classification was found
-        {
-            string fileContent = null;
-            string containerName = "nyforvarvslistan";
-            string blobName = "Dewey_SAB.txt";
-            SABDeweyMapper deweyMapper = null;
-
-            if (Environment.GetEnvironmentVariable("WEBSITE_CONTENTSHARE") != null)
-            {
-                // Running in Azure, read from Blob Storage
-                try
-                {
-                    BlobServiceClient blobServiceClient = new BlobServiceClient(storageConnectionString);
-                    BlobContainerClient containerClient = blobServiceClient.GetBlobContainerClient(containerName);
-                    BlobClient blobClient = containerClient.GetBlobClient(blobName);
-
-                    if (blobClient.Exists())
-                    {
-                        BlobDownloadInfo download = blobClient.Download();
-                        using (var reader = new StreamReader(download.Content, true))
-                        {
-                            fileContent = reader.ReadToEnd();
-                        }
-                    }
-                    else
-                    {
-                        throw new FileNotFoundException($"Blob '{blobName}' not found in container '{containerName}'.");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    // Handle exception, log error, or rethrow as necessary
-                    throw new InvalidOperationException("Error reading Dewey_SAB.txt from Blob Storage", ex);
-                }
-
-                if (fileContent != null)
-                {
-                    deweyMapper = new SABDeweyMapper(fileContent);
-                    // Continue processing with deweyMapper
-                }
-            }
-            else
-            {
-                // Running locally
-                string filePath = Path.Combine(Environment.CurrentDirectory, "Dewey_SAB.txt");
-                deweyMapper = new SABDeweyMapper(filePath, true);
-                // Continue processing with deweyMapper
-            }
-
-            // Process classifications using deweyMapper
-            foreach (var classification in classifications)
-            {
-                var convertedClassification = deweyMapper.getSabCode(classification);
-                var key = convertedClassification[0].ToString().ToUpper();
-                if (convertedClassification[0] == 'u' && convertedClassification.Length > 1)
-                {
-                    key = convertedClassification[1].ToString().ToUpper();
-                }
-
-                if (sabCategories.TryGetValue(key, out category))
-                {
-                    break;
-                }
-            }
-        }
-
-
-        return category ?? "Allmänt och blandat";
-    }
 }
