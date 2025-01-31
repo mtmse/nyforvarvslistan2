@@ -581,7 +581,7 @@ public static class NyforvarvslistanFunction
                 bookId = book.PSNo;
             }
 
-            if (!book.LibraryId.StartsWith("C") || !book.LibraryId.StartsWith("P"))
+            if (!book.LibraryId.StartsWith("C") && !book.LibraryId.StartsWith("P"))
             {
                 log.LogWarning("Book ID is missing. Skipping book.");
                 log.LogWarning($"Book: {JsonConvert.SerializeObject(book)}");
