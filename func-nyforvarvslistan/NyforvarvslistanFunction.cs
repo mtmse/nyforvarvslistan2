@@ -564,11 +564,19 @@ public static class NyforvarvslistanFunction
                 .DefaultIndex(defaultIndex)
                 .BasicAuthentication(elasticUsername, elasticPassword)
                 .DisableDirectStreaming()
+                .RequestTimeout(TimeSpan.FromSeconds(30))
                 .OnRequestCompleted(details =>
                 {
-                    // Each iteration has its own local 'rawResponse'
-                    rawResponse = System.Text.Encoding.UTF8.GetString(details.ResponseBodyInBytes);
+                    if (details.ResponseBodyInBytes != null)
+                    {
+                        rawResponse = System.Text.Encoding.UTF8.GetString(details.ResponseBodyInBytes);
+                    }
+                    else
+                    {
+                        rawResponse = "";  // or log a warning if needed
+                    }
                 });
+
 
             var client = new ElasticClient(settings);
 
