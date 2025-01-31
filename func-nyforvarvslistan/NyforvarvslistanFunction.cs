@@ -69,7 +69,7 @@ public static class NyforvarvslistanFunction
 
         // SetBackMinervaLastRun(log);
 
-        var generatedFiles = CreateLists(log, booksProduction);
+        var generatedFiles = await CreateLists(log, booksProduction);
 
         try
         {
@@ -558,15 +558,27 @@ public static class NyforvarvslistanFunction
             throw; // Rethrow the exception to be caught by the outer catch block if needed
         }
     }
-    public static List<(string FileName, byte[] Content)> CreateLists(ILogger log, List<Book> booksProd)
+    public static async Task<List<(string FileName, byte[] Content)>> CreateLists(
+    ILogger log,
+    List<Book> booksProd)
     {
+        // 1. Basic Logging
         log.LogInformation("Running CreateLists method.");
+
+        // Defensive check if booksProd is null
+        if (booksProd == null)
+        {
+            log.LogError("booksProd is null. Returning empty list.");
+            return new List<(string FileName, byte[] Content)>();
+        }
+
         log.LogInformation($"Found {booksProd.Count} books in production.");
+
+        // 2. Iterate Over Each Book
         foreach (var book in booksProd)
         {
+            // Decide bookId
             string bookId;
-
-            // If LibraryId is non-null/non-empty, we use that; otherwise we default to PSNo.
             if (!string.IsNullOrWhiteSpace(book.LibraryId))
             {
                 bookId = book.LibraryId;
@@ -576,7 +588,7 @@ public static class NyforvarvslistanFunction
                 bookId = book.PSNo;
             }
 
-            // 2. If after that logic, bookId is empty, we skip
+            // If bookId is empty, skip
             if (string.IsNullOrWhiteSpace(bookId))
             {
                 log.LogWarning("Book ID is missing. Skipping book.");
@@ -585,50 +597,104 @@ public static class NyforvarvslistanFunction
             }
 
             log.LogInformation($"Searching for book {bookId} in Elasticsearch.");
+
+            // 3. Local variable for rawResponse
             var rawResponse = string.Empty;
 
+            // 4. Create new ConnectionSettings and client per iteration
             var settings = new ConnectionSettings(new Uri(elasticUrl))
                 .DefaultIndex(defaultIndex)
                 .BasicAuthentication(elasticUsername, elasticPassword)
                 .DisableDirectStreaming()
                 .OnRequestCompleted(details =>
                 {
+                    // Each iteration has its own local 'rawResponse'
                     rawResponse = System.Text.Encoding.UTF8.GetString(details.ResponseBodyInBytes);
                 });
 
             var client = new ElasticClient(settings);
 
-            var searchResponse = client.SearchAsync<Book>(s => s
+            // 5. Use 'await' instead of '.Result'
+            var searchResponse = await client.SearchAsync<Book>(s => s
+                .Index("opds-1.1.0")    // add if your index is "opds-1.1.0"
                 .Query(q => q
                     .Match(m => m
-                        .Field("_id")
+                        .Field("_id")  // searching the _id field
                         .Query(bookId)
                     )
                 )
-            ).Result;
+            );
 
-            var deserializedResponse = JsonConvert.DeserializeObject<ElasticSearchResponse>(rawResponse);
-            var books = deserializedResponse.Hits.hits.FirstOrDefault()._source;
+            // Optional: Check if ES call is valid
+            if (!searchResponse.IsValid)
+            {
+                log.LogError($"Search error for bookId={bookId}: {searchResponse.OriginalException?.Message}");
+                continue;
+            }
+
+            // 6. Safely parse 'rawResponse' (if you truly need the manual JSON)
+            if (string.IsNullOrEmpty(rawResponse))
+            {
+                // If rawResponse is empty, skip or log
+                log.LogWarning($"rawResponse is null/empty for bookId={bookId}. Skipping parse.");
+                continue;
+            }
+
+            ElasticSearchResponse deserializedResponse = null;
+            try
+            {
+                deserializedResponse = JsonConvert.DeserializeObject<ElasticSearchResponse>(rawResponse);
+            }
+            catch (Exception ex)
+            {
+                log.LogError($"Failed to deserialize rawResponse for bookId={bookId}: {ex.Message}");
+                continue;
+            }
+
+            if (deserializedResponse?.Hits?.hits == null || !deserializedResponse.Hits.hits.Any())
+            {
+                log.LogWarning($"No hits found in rawResponse for bookId={bookId}. Skipping update.");
+                continue;
+            }
+
+            var firstHit = deserializedResponse.Hits.hits.FirstOrDefault();
+            if (firstHit?._source == null)
+            {
+                log.LogWarning($"_source is null in firstHit for bookId={bookId}. Skipping update.");
+                continue;
+            }
+
+            var books = firstHit._source; // The 'books' object from your JSON
+
+            // 7. Update local 'book' from 'books'
             if (books != null)
             {
                 book.LibraryId = bookId;
-                book.Description = books.SearchResultItem.Description;
-                book.Language = books.SearchResultItem.Language;
-                book.Author = books.SearchResultItem.Author;
-                if (book.PublishingCompany == null || book.Publisher == "")
+                book.Description = books.SearchResultItem?.Description;
+                book.Language = books.SearchResultItem?.Language;
+                book.Author = books.SearchResultItem?.Author;
+
+                // If book.PublishingCompany is missing, extract from remark
+                if ((book.PublishingCompany == null || book.Publisher == "") && books.SearchResultItem != null)
                 {
                     book.PublishingCompany = Extract(books.SearchResultItem.Remark);
                 }
 
-                if (book.PublishedYear == 0)
+                // If no published year, try extracting
+                if (book.PublishedYear == 0 && books.SearchResultItem != null)
                 {
-                    book.PublishedYear = int.Parse(ExtractYear(books.SearchResultItem.Remark));
+                    var remark = books.SearchResultItem.Remark;
+                    if (!string.IsNullOrEmpty(remark))
+                    {
+                        book.PublishedYear = int.Parse(ExtractYear(remark));
+                    }
                 }
 
+                // If book.Author is null or empty, fallback to 'Editors'?
                 if (book.Author == null || !book.Author.Any())
                 {
-                    List<Author> authors = new List<Author>();
-                    Author author = new Author();
+                    var authors = new List<Author>();
+                    var author = new Author();
                     var firstEditor = books.Editors?.FirstOrDefault();
                     if (firstEditor != null)
                     {
@@ -639,15 +705,18 @@ public static class NyforvarvslistanFunction
                     book.Author = authors;
                 }
 
-                if (book.Format == "Punktskrift") book.Format = "Tryckt punktskrift";
+                if (book.Format == "Punktskrift")
+                    book.Format = "Tryckt punktskrift";
 
-                if ((book.Classification == null || book.Classification == "")
+                // Set Classification if missing
+                if ((string.IsNullOrEmpty(book.Classification))
                     && books.Classification != null
                     && books.Classification.Any())
                 {
                     book.Classification = books.Classification.FirstOrDefault();
                 }
 
+                // AgeGroup
                 if (books.AgeGroup != "Adult")
                 {
                     book.AgeGroup = "Juvenile";
@@ -657,7 +726,9 @@ public static class NyforvarvslistanFunction
                     book.AgeGroup = "Adult";
                 }
 
-                if (books.PublicationCategories.FirstOrDefault().Contains("Fiction"))
+                // Category: check if PublicationCategories array is valid
+                var firstPubCat = books.PublicationCategories?.FirstOrDefault();
+                if (!string.IsNullOrEmpty(firstPubCat) && firstPubCat.Contains("Fiction"))
                 {
                     book.Category = "Skönlitteratur";
                 }
@@ -667,6 +738,8 @@ public static class NyforvarvslistanFunction
                 }
             }
         }
+
+        // 8. After updating all books, generate XML
         XmlGenerator xmlGenerator = new XmlGenerator();
 
         var generatedFiles = new List<(string FileName, byte[] Content)>();
@@ -678,10 +751,10 @@ public static class NyforvarvslistanFunction
         var currentDate = DateTime.Now;
         string yearMonth = $"{currentDate:yyyy-MM}";
 
-        // Helper function to generate file names
+        // Helper to generate file names
         string GenerateFileName(string prefix, string suffix) => $"{prefix}{suffix}-{yearMonth}.xml";
 
-        // Generate XML files for talking books
+        // Generate XML for talking books
         if (talkingBooks.Any())
         {
             var tbFileNames = new List<string>
@@ -698,7 +771,7 @@ public static class NyforvarvslistanFunction
             }
         }
 
-        // Generate XML files for braille books
+        // Generate XML for braille books
         if (brailleBooks.Any())
         {
             var pbFileNames = new List<string>
@@ -717,6 +790,7 @@ public static class NyforvarvslistanFunction
 
         return generatedFiles;
     }
+
 
     public static async void SendEmailWithAttachments(string[] filePaths, string emailAddress)
     {
