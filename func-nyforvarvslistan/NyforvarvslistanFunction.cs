@@ -581,6 +581,13 @@ public static class NyforvarvslistanFunction
                 bookId = book.PSNo;
             }
 
+            if (bookId == null || bookId == "")
+            {
+                log.LogWarning("Book ID is missing. Skipping book.");
+                log.LogWarning($"Book: {JsonConvert.SerializeObject(book)}");
+                continue;
+            }
+
             var response = Client.Search<ElasticSearchResponse>(s => s
                 .Index("opds-1.1.0")
                 .Query(q => q
@@ -590,8 +597,6 @@ public static class NyforvarvslistanFunction
                     )
                 )
             );
-
-            log.LogInformation($"Elasticsearch returned {response.Documents.Count} documents for book {bookId}.");
 
             var deserializedResponse = JsonConvert.DeserializeObject<ElasticSearchResponse>(rawResponse);
             var books = deserializedResponse.Hits.hits.FirstOrDefault()._source;
@@ -627,12 +632,14 @@ public static class NyforvarvslistanFunction
 
                 if (book.Format == "Punktskrift") book.Format = "Tryckt punktskrift";
 
-                if (book.Classification == null || book.Classification == "")
+                if ((book.Classification == null || book.Classification == "")
+                    && books.Classification != null
+                    && books.Classification.Any())
                 {
                     book.Classification = books.Classification.FirstOrDefault();
                 }
 
-                if(books.AgeGroup != "Adult")
+                if (books.AgeGroup != "Adult")
                 {
                     book.AgeGroup = "Juvenile";
                 }
