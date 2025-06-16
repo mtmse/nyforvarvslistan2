@@ -108,6 +108,8 @@ public static class NyforvarvslistanFunction
         {
             log.LogError($"An error occurred: {ex.Message}");
         }
+
+        return new OkObjectResult("Nyförvärvslistan har skapats och skickats till e-post: " + email);
     }
 
 public static string Extract(string input)
