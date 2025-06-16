@@ -77,28 +77,11 @@ public static class NyforvarvslistanFunction
 
         var booksProduction = await GetProductionTitles(pssDict);
 
-        foreach (var book in booksProduction)
-        {
-            Console.WriteLine($"Classification: {book.Classification}    libraryId: {book.LibraryId}");
-        }
-
         try
         {
-            // Only run on the 22nd of the month if not already run today
-            if (lastRunDate != DateTime.UtcNow.Date && DateTime.UtcNow.Day == 2 )
-            {
-                lastRunDate = DateTime.UtcNow.Date;
+            CreateLists(log, booksProduction, email);
 
-                // SetBackMinervaLastRun(log);
-                // Optionally delay if needed: Task.Delay(30000).Wait();
-                CreateLists(log, booksProduction, email);
-
-                log.LogInformation("CreateLists executed successfully.");
-            }
-            else
-            {
-                log.LogInformation("CreateLists has already run today. Skipping execution.");
-            }
+            log.LogInformation("CreateLists executed successfully.");
         }
         catch (RequestFailedException ex)
         {
