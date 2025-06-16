@@ -80,7 +80,6 @@ public static class NyforvarvslistanFunction
         try
         {
             CreateLists(log, booksProduction, email);
-
             log.LogInformation("CreateLists executed successfully.");
         }
         catch (RequestFailedException ex)
@@ -573,8 +572,6 @@ public static string Extract(string input)
                 continue;
             }
 
-            log.LogWarning("Hämtar bok med bookId: " + bookId);
-
             var lowLevelResponse = Client.LowLevel.Search<StringResponse>("opds-2.0.0", PostData.Serializable(new
             {
                 query = new
@@ -606,7 +603,6 @@ public static string Extract(string input)
                 continue;
             }
 
-            log.LogWarning($"Hittade bookId {bookId}");
             if (bookId == "CA71387")
             {
                 log.LogInformation($"books.Id: {firstHit._source?.Id}, books.Description: {firstHit._source?.SearchResultItem.Description}");
@@ -634,7 +630,7 @@ public static string Extract(string input)
                 book.Description = books.SearchResultItem.Description;
                 book.Language = books.SearchResultItem.Language;
                 book.Author = books.SearchResultItem.Author;
-                book.Narrator = books.SearchResultItem.Narrator.FirstOrDefault().Name;
+                book.Narrator = books?.SearchResultItem?.Narrator?.FirstOrDefault()?.Name;
 
                 if (book.PublishingCompany == null || book.Publisher == "")
                 {
