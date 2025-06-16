@@ -8,37 +8,47 @@ using System.Collections.Generic;
 public class ElasticSearchResponse
 {
     // ... other properties ...
-
-    public Hits Hits { get; set; }
+    [JsonProperty("hits")]
+    public Hits hits { get; set; }
 }
 
 public class Hits
 {
     // ... other properties ...
-
+    [JsonProperty("hits")]
     public List<Hit> hits { get; set; }
 }
 
 public class Hit
 {
+    [JsonProperty("_source")]
     public Source _source { get; set; }
 }
 
 public class Source
 {
-    public List<String> Classification { get; set; }
-    public List<String> PublicationCategories { get; set; }
+    [JsonProperty("Id")]
+    public string Id { get; set; }
 
+    [JsonProperty("Classification")]
+    public List<string> Classification { get; set; }
+
+    [JsonProperty("PublicationCategories")]
+    public List<string> PublicationCategories { get; set; }
+
+    [JsonProperty("SearchResultItem")]
     public SearchResultItem SearchResultItem { get; set; }
 
     [JsonProperty("Editors")]
     public List<Editor> Editors { get; set; }
 
     [JsonProperty("Translators")]
-    public List<Translator> Translator { get; set; }
+    public List<Translator> Translators { get; set; }
+
     [JsonProperty("TargetAudience")]
-    public string AgeGroup { get; set; }
+    public string TargetAudience { get; set; }
 }
+
 
 
 
@@ -49,7 +59,8 @@ public class Publisher
 
 public class SearchResultItem
 {
-   // [JsonConverter(typeof(SingleOrArrayConverter<string>))]
+    // [JsonConverter(typeof(SingleOrArrayConverter<string>))]
+    [JsonProperty("author")]
     public List<Author> Author { get; set; }
     [JsonProperty("x-mtm-narrators")]
     public List<Narrator> Narrator { get; set; }

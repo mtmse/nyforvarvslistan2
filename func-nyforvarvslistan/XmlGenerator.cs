@@ -430,6 +430,158 @@ namespace func_nyforvarvslistan
         }
         public byte[] GenerateXmlContent(List<Book> books, string filePath)
         {
+            // Throw an error early if the input list is null.
+            if (books == null)
+            {
+                throw new ArgumentNullException(nameof(books), $"The books list passed to GenerateXmlContent is null. FilePath: {filePath}");
+            }
+
+            // Optionally, if an empty list should be treated as an error:
+            if (!books.Any())
+            {
+                throw new Exception($"The books list is empty in GenerateXmlContent. FilePath: {filePath}");
+            }
+
+            // Use the first book's LibraryId to get the format.
+            var bookFormat = books.FirstOrDefault()?.LibraryId; // If books is empty, FirstOrDefault() returns null.
+                                                                // Note: if bookFormat is null, you might want to decide what to do.
+            string title = Dates.GetFormattedBookTitle(bookFormat, Dates.StartOfPreviousMonth);
+            XNamespace ns = "http://www.daisy.org/z3986/2005/dtbook/";
+
+            var root = new XElement(ns + "dtbook",
+                    new XAttribute("version", "2005-2"),
+                    new XAttribute(XNamespace.Xml + "lang", "sv"));
+
+            var head = new XElement(ns + "head",
+                new XElement(ns + "meta", new XAttribute("name", "dtb:uid"), new XAttribute("content", "dummy-id-5046559668269995")),
+                new XElement(ns + "meta", new XAttribute("name", "dc:Title"), new XAttribute("content", title)),
+                new XElement(ns + "meta", new XAttribute("name", "dc:Language"), new XAttribute("content", "sv")),
+                new XElement(ns + "meta", new XAttribute("name", "dc:Publisher"), new XAttribute("content", "MTM")),
+                new XElement(ns + "meta", new XAttribute("name", "dc:Date"), new XAttribute("content", DateTime.Now.ToString("yyyy-MM-dd")))
+            );
+            root.Add(head);
+
+            var bookElement = new XElement(ns + "book");
+            var frontmatter = new XElement(ns + "frontmatter");
+
+            frontmatter.Add(new XElement(ns + "doctitle", title));
+
+            XElement introLevel1 = null;
+            if (filePath.Contains("punkt"))
+            {
+                introLevel1 = new XElement(ns + "level1",
+                    new XElement(ns + "h1", "Inledning"),
+                    new XElement(ns + "p", "Listan är uppdelad i 4 delar; Böcker för vuxna, Böcker för barn och ungdom, Specialproduktioner samt Böcker på andra språk än svenska. Dessa avsnitt ligger på rubriknivå 1."),
+                    new XElement(ns + "p", "Böcker för vuxna är uppdelad i avsnitten Skönlitteratur och Facklitteratur. Böcker för barn och ungdom är uppdelad i avsnitten Skönlitteratur och Faktaböcker. Dessa avsnitt ligger på rubriknivå 2."),
+                    new XElement(ns + "p", "Specialproduktioner är uppdelad i avsnitt efter olika typer av specialproduktioner. Dessa avsnitt ligger på rubriknivå 2."),
+                    new XElement(ns + "p", "Böcker på andra språk än svenska är uppdelad i avsnitten Böcker för vuxna och Böcker för barn och ungdom. Dessa avsnitt ligger också på rubriknivå 2."),
+                    new XElement(ns + "p", "Listan saknar indelning i olika ämneskategorier under avsnitten Facklitteratur och Faktaböcker."),
+                    new XElement(ns + "p", $"Listan omfattar {books.Count()} titlar.")
+                );
+            }
+            else
+            {
+                introLevel1 = new XElement(ns + "level1",
+                    new XElement(ns + "h1", "Inledning"),
+                    new XElement(ns + "p", "Listan är uppdelad i 3 delar; Böcker för vuxna, Böcker för barn och ungdom och Böcker på andra språk än svenska. Dessa avsnitt ligger på rubriknivå 1."),
+                    new XElement(ns + "p", "Böcker för vuxna är uppdelad i avsnitten Skönlitteratur och Facklitteratur. Böcker för barn och ungdom är uppdelad i avsnitten Skönlitteratur och Faktaböcker. Dessa avsnitt ligger på rubriknivå 2."),
+                    new XElement(ns + "p", "Böcker på andra språk än svenska är uppdelad i avsnitten Böcker för vuxna och Böcker för barn och ungdom. Dessa avsnitt ligger också på rubriknivå 2."),
+                    new XElement(ns + "p", "Listan saknar indelning i olika ämneskategorier under avsnitten Facklitteratur och Faktaböcker."),
+                    new XElement(ns + "p", $"Listan omfattar {books.Count()} titlar.")
+                );
+            }
+            frontmatter.Add(introLevel1);
+            bookElement.Add(frontmatter);
+
+            var bodymatter = new XElement(ns + "bodymatter");
+            // Make sure that 'books' (the list) is not null before grouping.
+            var groupedByLanguage = books.GroupBy(b => b.Language == "Svenska" ? "Swedish" : "Non-Swedish")
+                                         .OrderBy(g => g.Key == "Swedish" ? 0 : 1);
+            var toLinkOrNotToLink = "";
+            if (filePath.Contains("no-links"))
+            {
+                toLinkOrNotToLink = "no-links";
+            }
+            foreach (var languageGroup in groupedByLanguage)
+            {
+                if (languageGroup.Key == "Swedish")
+                {
+                    bodymatter.Add(GenerateSwedishSectionXml(languageGroup, toLinkOrNotToLink));
+                }
+                else if (!filePath.Contains("swedishonly"))
+                {
+                    bodymatter.Add(GenerateNonSwedishSectionXml(languageGroup, toLinkOrNotToLink));
+                }
+            }
+            bookElement.Add(bodymatter);
+            root.Add(bookElement);
+
+            var docType = new XDocumentType("dtbook", "-//NISO//DTD dtbook 2005-2//EN", "http://www.daisy.org/z3986/2005/dtbook-2005-2.dtd", null);
+            var doc = new XDocument(
+                new XDeclaration("1.0", "UTF-8", null),
+                docType,
+                root);
+
+            XmlWriterSettings settingsXml = new XmlWriterSettings
+            {
+                Indent = true,
+                IndentChars = "    ",
+                NewLineChars = Environment.NewLine,
+                NewLineHandling = NewLineHandling.Replace,
+                Encoding = Encoding.UTF8
+            };
+
+            using (var memoryStream = new MemoryStream())
+            {
+                using (XmlWriter writer = XmlWriter.Create(memoryStream, settingsXml))
+                {
+                    doc.Save(writer);
+                }
+                return memoryStream.ToArray();
+            }
+        }
+
+
+        public XElement GenerateNonSwedishSectionXml(IEnumerable<Book> languageGroup, string toLinkOrNotToLink)
+        {
+            /*
+             * foreach (var book in languageGroup)
+            {
+                if (book.PublicationCategory.FirstOrDefault() == "Fiction")
+                {
+                    book.Category = "Skönlitteratur";
+                }
+            }
+            */
+
+            var section = new XElement(ns + "level1", new XElement(ns + "h1", "Böcker på andra språk än svenska"));
+
+            var groupedByAgeGroup = languageGroup.GroupBy(b => b.AgeGroup).OrderBy(g => g.Key == "Adult" ? 0 : 1);
+            foreach (var ageGroup in groupedByAgeGroup)
+            {
+                var ageGroupLevel = new XElement(ns + "level2", new XElement(ns + "h2", $"Böcker för {TranslateToSwedish(ageGroup.Key)}"));
+                section.Add(ageGroupLevel);
+                var orderedBooks = ageGroup.OrderBy(book =>
+                {
+                    var primaryAuthor = book.Author.FirstOrDefault(author => author.IsPrimaryContributor);
+
+                    return primaryAuthor != null ? GetAuthorLastName(primaryAuthor) : "";
+                });
+
+                foreach (var book in orderedBooks)
+                {
+                    var bookDetails = GenerateBookDetailsXml(book, 3, toLinkOrNotToLink);
+                    //var level = new XElement(ns + "level3");
+                    //level.Add(bookDetails);
+                    ageGroupLevel.Add(bookDetails);
+                }
+            }
+
+            return section;
+        }
+
+        public void SaveToFile(List<Book> books, string filePath)
+        {
             var bookFormat = books.FirstOrDefault()?.LibraryId;
             string title = Dates.GetFormattedBookTitle(bookFormat, Dates.StartOfPreviousMonth);
             XNamespace ns = "http://www.daisy.org/z3986/2005/dtbook/";
@@ -516,54 +668,10 @@ namespace func_nyforvarvslistan
                 NewLineHandling = NewLineHandling.Replace,
                 Encoding = Encoding.UTF8
             };
-
-            using (var memoryStream = new MemoryStream())
+            using (XmlWriter writer = XmlWriter.Create(filePath, settings))
             {
-                using (XmlWriter writer = XmlWriter.Create(memoryStream, settings))
-                {
-                    doc.Save(writer);
-                }
-                return memoryStream.ToArray();
+                doc.Save(writer);
             }
         }
-
-        public XElement GenerateNonSwedishSectionXml(IEnumerable<Book> languageGroup, string toLinkOrNotToLink)
-        {
-            /*
-             * foreach (var book in languageGroup)
-            {
-                if (book.PublicationCategory.FirstOrDefault() == "Fiction")
-                {
-                    book.Category = "Skönlitteratur";
-                }
-            }
-            */
-
-            var section = new XElement(ns + "level1", new XElement(ns + "h1", "Böcker på andra språk än svenska"));
-
-            var groupedByAgeGroup = languageGroup.GroupBy(b => b.AgeGroup).OrderBy(g => g.Key == "Adult" ? 0 : 1);
-            foreach (var ageGroup in groupedByAgeGroup)
-            {
-                var ageGroupLevel = new XElement(ns + "level2", new XElement(ns + "h2", $"Böcker för {TranslateToSwedish(ageGroup.Key)}"));
-                section.Add(ageGroupLevel);
-                var orderedBooks = ageGroup.OrderBy(book =>
-                {
-                    var primaryAuthor = book.Author.FirstOrDefault(author => author.IsPrimaryContributor);
-
-                    return primaryAuthor != null ? GetAuthorLastName(primaryAuthor) : "";
-                });
-
-                foreach (var book in orderedBooks)
-                {
-                    var bookDetails = GenerateBookDetailsXml(book, 3, toLinkOrNotToLink);
-                    //var level = new XElement(ns + "level3");
-                    //level.Add(bookDetails);
-                    ageGroupLevel.Add(bookDetails);
-                }
-            }
-
-            return section;
-        }
-
     }
 }

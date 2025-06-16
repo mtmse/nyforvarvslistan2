@@ -1,6 +1,5 @@
-using System;
+Ôªøusing System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Azure;
@@ -9,26 +8,26 @@ using Microsoft.Azure.WebJobs;
 using Microsoft.Extensions.Logging;
 using Nest;
 using Newtonsoft.Json;
-using Microsoft.Identity.Client;
-using System.Net.Http.Headers;
-using System.Net.Http;
 using func_nyforvarvslistan.Models;
 using func_nyforvarvslistan;
-using Newtonsoft.Json.Linq;
-using Mailjet.Client;
-using Mailjet.Client.Resources;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
-using System.Data;
+using System.IO;
+using System.Net.Http.Headers;
+using System.Net.Http;
+using Mailjet.Client;
+using Mailjet.Client.Resources;
+using Newtonsoft.Json.Linq;
+using Microsoft.Identity.Client;
 using System.Text.RegularExpressions;
+using Elasticsearch.Net;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.WebJobs.Extensions.Http;
-using System.IO.Compression;
-using System.Text;
 
 public static class NyforvarvslistanFunction
 {
+    // Static configuration (ensure these remain as originally configured)
     static string _clientId = "a3656140-53e9-4014-8587-1ebc02a3d958";
     static string _clientSecret = "ZFL8Q~Gqy84Xgkkh4eqrVAeHXiWYDaUr6mRFYchg";
     static string _tenantId = "59413b88-a6c3-4dd7-ab9f-2470536e50f5";
@@ -45,74 +44,79 @@ public static class NyforvarvslistanFunction
     private static string blobFileName = "MinervaLastRunTimestamp";
     private static string tableName = "MinervaLastRunTimestamp";
 
+    public static string rawResponse { get; private set; }
+    private static readonly ConnectionSettings ConnectionSettings = new ConnectionSettings(new Uri(elasticUrl))
+        .DefaultIndex(defaultIndex)
+        .BasicAuthentication(elasticUsername, elasticPassword)
+        .DisableDirectStreaming()
+        .OnRequestCompleted(details =>
+        {
+            rawResponse = System.Text.Encoding.UTF8.GetString(details.ResponseBodyInBytes);
+        });
+
+    private static readonly ElasticClient Client = new ElasticClient(ConnectionSettings);
     private static DateTime? lastRunDate = null;
 
     [FunctionName("NyforvarvslistanFunction")]
-    public static async Task<IActionResult> Run([HttpTrigger(AuthorizationLevel.Function, "get", Route = null)] HttpRequest req, ILogger log)
+    public static async Task<IActionResult> Run(
+    [HttpTrigger(AuthorizationLevel.Function, "get", "post", Route = null)] HttpRequest req,
+    ILogger log)
     {
-        log.LogInformation("NyforvarvslistanFunction HTTP trigger function processed a request.");
-
+        string email = req.Query["email"];
+        log.LogInformation("NyforvarvslistanFunction time-triggered function processed a request.");
 
         Dictionary<int, string> pssDict = new Dictionary<int, string>
         {
             { 21, "Interfolierad bok." },
             { 22, "Bredvidbok i ficka." },
             { 23, "Bok med inklistrad punktskrift." },
-            { 25, "Punktskriftsbok fˆr l‰str‰ning." },
+            { 25, "Punktskriftsbok f√∂r l√§str√§ning." },
             { 26, "Punktskriftsbok med bilder och storstil." },
-            { 27, "Punktskriftsbok, bredvidbok, l‰tt att l‰sa." },
+            { 27, "Punktskriftsbok, bredvidbok, l√§tt att l√§sa." },
         };
 
         var booksProduction = await GetProductionTitles(pssDict);
 
-        log.LogInformation($"Found {booksProduction.Count} books in production.");
-
-        // SetBackMinervaLastRun(log);
-
-        var generatedFiles = await CreateLists(log, booksProduction);
+        foreach (var book in booksProduction)
+        {
+            Console.WriteLine($"Classification: {book.Classification}    libraryId: {book.LibraryId}");
+        }
 
         try
         {
-            if (generatedFiles.Any())
+            // Only run on the 22nd of the month if not already run today
+            if (lastRunDate != DateTime.UtcNow.Date && DateTime.UtcNow.Day == 2 )
             {
-                var zipStream = new MemoryStream(); // Removed 'using' statement
-                using (var archive = new ZipArchive(zipStream, ZipArchiveMode.Create, leaveOpen: true))
-                {
-                    foreach (var file in generatedFiles)
-                    {
-                        var zipEntry = archive.CreateEntry(file.FileName, CompressionLevel.Fastest);
-                        using (var entryStream = zipEntry.Open())
-                        {
-                            await entryStream.WriteAsync(file.Content, 0, file.Content.Length);
-                        }
-                    }
-                }
+                lastRunDate = DateTime.UtcNow.Date;
 
-                zipStream.Seek(0, SeekOrigin.Begin);
-                string zipFileName = $"Nyforvarvslistan-{DateTime.Now:yyyy-MM}.zip";
+                // SetBackMinervaLastRun(log);
+                // Optionally delay if needed: Task.Delay(30000).Wait();
+                CreateLists(log, booksProduction, email);
 
-                return new FileStreamResult(zipStream, "application/zip")
-                {
-                    FileDownloadName = zipFileName
-                };
+                log.LogInformation("CreateLists executed successfully.");
             }
             else
             {
-                return new BadRequestObjectResult("No files were generated.");
+                log.LogInformation("CreateLists has already run today. Skipping execution.");
             }
+        }
+        catch (RequestFailedException ex)
+        {
+            log.LogError($"Request failed with error: {ex.Message}");
         }
         catch (Exception ex)
         {
-            log.LogError($"An error occurred while creating the zip file: {ex.Message}");
-            return new StatusCodeResult(StatusCodes.Status500InternalServerError);
+            log.LogError($"An error occurred: {ex.Message}");
         }
+
+        return new OkObjectResult("Nyf√∂rv√§rvslistan har skapats och skickats till e-post: " + email);
     }
 
-    public static string Extract(string input)
+public static string Extract(string input)
     {
         if (!string.IsNullOrEmpty(input))
         {
-            var match = Regex.Match(input, @"Anpassad frÂn: (.+?) : (.+?), (\d{4})\.");
+            var match = Regex.Match(input, @"Anpassad fr√•n: (.+?) : (.+?), (\d{4})\.");
             if (match.Success)
             {
                 return match.Groups[2].Value.Trim();
@@ -132,7 +136,7 @@ public static class NyforvarvslistanFunction
     {
         if (!string.IsNullOrEmpty(input))
         {
-            var match = Regex.Match(input, @"Anpassad frÂn: (.+?) : (.+?), (\d{4})\.");
+            var match = Regex.Match(input, @"Anpassad fr√•n: (.+?) : (.+?), (\d{4})\.");
             if (match.Success)
             {
                 return match.Groups[3].Value.Trim();
@@ -211,7 +215,7 @@ public static class NyforvarvslistanFunction
                 .Where(instanceDetail => !string.IsNullOrEmpty(instanceDetail.ItemId))
                 .Select(instanceDetail =>
                 {
-                    // Fˆrsˆk hitta motsvarande InstanceDetail baserat pÂ TitleId
+                    // F√∂rs√∂k hitta motsvarande InstanceDetail baserat p√• TitleId
                     mtmTitlesDict.TryGetValue(instanceDetail.ItemId, out MTMTitle title);
 
                     return new Book
@@ -223,7 +227,7 @@ public static class NyforvarvslistanFunction
                         Format = instanceDetail.ProdMediaTypeDescr,
                         Publisher = title.Publisher,
                         PublishedYear = title.PublicationYear,
-                        Category = title.Category.Contains("Skˆn") ? "Skˆnlitteratur" : "Facklitteratur",
+                        Category = title.Category.Contains("Sk√∂n") ? "Sk√∂nlitteratur" : "Facklitteratur",
                         Classification = title.ClassificationCode,
                         Notes = title.Notes,
                         Comments = instanceDetail.Comments,
@@ -246,14 +250,14 @@ public static class NyforvarvslistanFunction
                             : instanceDetail.NoOfPagesPS,
                         PlayTime = instanceDetail.PlayTimeStr,
                         AgeGroup = (!string.IsNullOrEmpty(title.Category) && title.Category.EndsWith("V")) ? "Adult" : "Juvenile",
-                        Description = "Testbeskrivning sÂ l‰nge",
+                        Description = "Testbeskrivning s√• l√§nge",
                         City = null,
                         PublishingCompany = title.Publisher,
                         PSNo = instanceDetail.PSNo,
 
                     };
-                }).Where(book => !book.Title.Contains("Nya talbˆcker")
-                && !book.Title.Contains("Nya punktskriftsbˆcker")).ToList();
+                }).Where(book => !book.Title.Contains("Nya talb√∂cker")
+                && !book.Title.Contains("Nya punktskriftsb√∂cker")).ToList();
 
         Console.WriteLine($"Total Books: {books.Count}");
         return books;
@@ -281,7 +285,7 @@ public static class NyforvarvslistanFunction
 
                     allSmmActivities.AddRange(dynamicsData.Value);
 
-                    // Uppdatera n‰sta l‰nk fˆr paginering
+                    // Uppdatera n√§sta l√§nk f√∂r paginering
                     requestUrl = dynamicsData.NextLink;
                 }
                 else
@@ -301,8 +305,8 @@ public static class NyforvarvslistanFunction
         List<InstanceDetail> allInstanceDetails = new List<InstanceDetail>();
         string _instanceDetailsEndpoint = "https://mtm-prod.operations.dynamics.com/data/InstanceDetails";
 
-        // Dela upp TitleIds i batcher om nˆdv‰ndigt
-        int batchSize = 50; // Anpassa baserat pÂ API-begr‰nsningar
+        // Dela upp TitleIds i batcher om n√∂dv√§ndigt
+        int batchSize = 50; // Anpassa baserat p√• API-begr√§nsningar
         List<List<string>> batches = titleIds
             .Select((id, index) => new { id, index })
             .GroupBy(x => x.index / batchSize)
@@ -405,8 +409,8 @@ public static class NyforvarvslistanFunction
         List<ProductionHeader> allHeaders = new List<ProductionHeader>();
         string _baseODataEndpoint = "https://mtm-prod.operations.dynamics.com/data/ProductionHeaders";
 
-        // Dela upp CaseIds i batcher om nˆdv‰ndigt
-        int batchSize = 50; // Anpassa baserat pÂ API-begr‰nsningar
+        // Dela upp CaseIds i batcher om n√∂dv√§ndigt
+        int batchSize = 50; // Anpassa baserat p√• API-begr√§nsningar
         List<List<string>> batches = caseIds
             .Select((id, index) => new { id, index })
             .GroupBy(x => x.index / batchSize)
@@ -415,14 +419,14 @@ public static class NyforvarvslistanFunction
 
         foreach (var batch in batches)
         {
-            // Bygg $filter med OR fˆr varje CaseId i batchen
+            // Bygg $filter med OR f√∂r varje CaseId i batchen
             string odataFilter = string.Join(" or ", batch.Select(id => $"CaseId eq '{id}'"));
             string requestUrl = $"{_baseODataEndpoint}?$filter={Uri.EscapeDataString(odataFilter)}&$select=CaseId,ProdStatus,OrderTypeId,ProdMediaType,TitleNo&$top=1000";
 
             using (HttpClient client = new HttpClient())
             {
-                // Anv‰nd din befintliga autentiseringsmetod fˆr att fÂ en token
-                string token = await GetAccessTokenAsync(); // Justera om nˆdv‰ndigt
+                // Anv√§nd din befintliga autentiseringsmetod f√∂r att f√• en token
+                string token = await GetAccessTokenAsync(); // Justera om n√∂dv√§ndigt
                 client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
                 client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
@@ -436,7 +440,7 @@ public static class NyforvarvslistanFunction
 
                         allHeaders.AddRange(headersData.Value);
 
-                        // Uppdatera n‰sta l‰nk fˆr paginering
+                        // Uppdatera n√§sta l√§nk f√∂r paginering
                         requestUrl = headersData.NextLink;
                     }
                     else
@@ -472,10 +476,10 @@ public static class NyforvarvslistanFunction
         string token = await GetAccessTokenAsync(); // Antag att denna metod finns och returnerar en giltig access token
         List<ProductionRoute> allRoutes = new List<ProductionRoute>();
 
-        // Bas-URL fˆr API:et
+        // Bas-URL f√∂r API:et
         string baseUrl = "https://mtm-prod.operations.dynamics.com/data/ProductionRoutes";
 
-        // Definiera batchstorlek fˆr att undvika fˆr lÂnga URL:er
+        // Definiera batchstorlek f√∂r att undvika f√∂r l√•nga URL:er
         int batchSize = 50;
 
         // Dela upp ActivityNumbers i batchar
@@ -510,7 +514,7 @@ public static class NyforvarvslistanFunction
                 else
                 {
                     string errorResult = await response.Content.ReadAsStringAsync();
-                    throw new HttpRequestException($"Fel vid h‰mtning av ProductionRoutes: {response.StatusCode}, {errorResult}");
+                    throw new HttpRequestException($"Fel vid h√§mtning av ProductionRoutes: {response.StatusCode}, {errorResult}");
                 }
             }
         }
@@ -518,181 +522,174 @@ public static class NyforvarvslistanFunction
         return allRoutes;
     }
 
-    public static async Task<List<(string FileName, byte[] Content)>> CreateLists(
-    ILogger log,
-    List<Book> booksProd)
+    private static async Task SetBackMinervaLastRun(ILogger log)
     {
-        // 1. Basic Logging
-        log.LogInformation("Running CreateLists method.");
-
-        // Defensive check if booksProd is null
-        if (booksProd == null)
+        log.LogInformation("Running SetBackMinervaLastRun method.");
+        try
         {
-            log.LogError("booksProd is null. Returning empty list.");
-            return new List<(string FileName, byte[] Content)>();
-        }
+            var tableClient = new TableClient(storageConnectionString, tableName);
 
-        log.LogInformation($"Found {booksProd.Count} books in production.");
+            string partitionKey = "Minerva";
+            string rowKey = "Timestamp";
 
-        // 2. Iterate Over Each Book
-        foreach (var book in booksProd)
-        {
-            // Decide bookId
-            string bookId;
-            if (!string.IsNullOrWhiteSpace(book.LibraryId))
+            var entity = await tableClient.GetEntityAsync<Azure.Data.Tables.TableEntity>(partitionKey, rowKey);
+            var tableEntity = entity.Value;
+
+            DateTime newTimestamp = DateTime.UtcNow.AddHours(-24);
+            string formattedTimestamp = newTimestamp.ToString("yyyy-MM-ddTHH:mm:sszzz");
+
+
+            if (tableEntity.ContainsKey("last_successful_run"))
             {
-                bookId = book.LibraryId;
+                tableEntity["last_successful_run"] = formattedTimestamp;
             }
             else
+            {
+                tableEntity.Add("last_successful_run", formattedTimestamp);
+            }
+
+            await tableClient.UpdateEntityAsync(tableEntity, tableEntity.ETag, TableUpdateMode.Replace);
+            log.LogInformation("Table Storage last_successful_run timestamp updated successfully.");
+        }
+        catch (RequestFailedException ex)
+        {
+            log.LogError($"Request to Table Storage failed: {ex.Message}");
+            throw; // Rethrow the exception to be caught by the outer catch block if needed
+        }
+        catch (Exception ex)
+        {
+            log.LogError($"An error occurred while updating the Table Storage: {ex.Message}");
+            throw; // Rethrow the exception to be caught by the outer catch block if needed
+        }
+    }
+    public static void CreateLists(ILogger log, List<Book> booksProd, string email)
+    {
+        var toRemove = new List<Book>();
+
+        for (int i = booksProd.Count - 1; i >= 0; i--)
+        {
+            var book = booksProd[i];
+            var bookId = book.LibraryId;
+
+            if (book.LibraryId == null || book.LibraryId == "" || !book.LibraryId.StartsWith("C"))
             {
                 bookId = book.PSNo;
             }
 
-            // If bookId is empty, skip
-            if (string.IsNullOrWhiteSpace(bookId))
+            if (string.IsNullOrEmpty(bookId))
             {
-                log.LogWarning("Book ID is missing. Skipping book.");
-                log.LogWarning($"Book: {JsonConvert.SerializeObject(book)}");
+                log.LogWarning("bookId √§r null eller tomt ‚Äì hoppar √∂ver denna iteration.");
+                booksProd.RemoveAt(i);
                 continue;
             }
 
-            // 3. Local variable for rawResponse
-            var rawResponse = string.Empty;
+            if (bookId == "CA71387")
+            {
+                log.LogInformation("Hittade bok med bookId: " + bookId + " ‚Äì hoppar √∂ver denna iteration.");
+                booksProd.RemoveAt(i);
+                continue;
+            }
 
-            // 4. Create new ConnectionSettings and client per iteration
-            var settings = new ConnectionSettings(new Uri(elasticUrl))
-                .DefaultIndex(defaultIndex)
-                .BasicAuthentication(elasticUsername, elasticPassword)
-                .DisableDirectStreaming()
-                .RequestTimeout(TimeSpan.FromSeconds(30))
-                .OnRequestCompleted(details =>
+            log.LogWarning("H√§mtar bok med bookId: " + bookId);
+
+            var lowLevelResponse = Client.LowLevel.Search<StringResponse>("opds-2.0.0", PostData.Serializable(new
+            {
+                query = new
                 {
-                    if (details.ResponseBodyInBytes != null)
+                    match = new
                     {
-                        rawResponse = System.Text.Encoding.UTF8.GetString(details.ResponseBodyInBytes);
+                        _id = bookId
                     }
-                    else
-                    {
-                        rawResponse = "";  // or log a warning if needed
-                    }
-                });
+                }
+            }));
 
+            string rawJson = lowLevelResponse.Body;
 
-            var client = new ElasticClient(settings);
+            var deserializedResponse = JsonConvert.DeserializeObject<ElasticSearchResponse>(rawJson);
 
-            // 5. Use 'await' instead of '.Result'
-            ISearchResponse<Book> searchResponse = null;
-            log.LogInformation($"(DEBUG) Searching ES with bookId=[{bookId ?? "<null>"}], length={bookId?.Length ?? -1}");
-            try
+            if (deserializedResponse?.hits?.hits == null || !deserializedResponse.hits.hits.Any())
             {
-                searchResponse = await client.SearchAsync<Book>(s => s
-                    .Index("opds-1.1.0")
-                    .Query(q => q
-                        .Term(t => t
-                            .Field("_id")
-                            .Value(bookId)
-                        )
-                    )
-                );
-            }
-            catch (Exception ex)
-            {
-                log.LogError($"Failed to search for bookId={bookId}: {ex.Message}");
-                continue;
-            }
-            // Optional: Check if ES call is valid
-            if (!searchResponse.IsValid)
-            {
-                log.LogError($"Search error for bookId={bookId}: {searchResponse.OriginalException?.Message}");
+                log.LogWarning($"Inga tr√§ffar i Elastic f√∂r bookId {bookId}");
+                booksProd.RemoveAt(i);
                 continue;
             }
 
-            // 6. Safely parse 'rawResponse' (if you truly need the manual JSON)
-            if (string.IsNullOrEmpty(rawResponse))
-            {
-                // If rawResponse is empty, skip or log
-                log.LogWarning($"rawResponse is null/empty for bookId={bookId}. Skipping parse.");
-                continue;
-            }
+            var firstHit = deserializedResponse.hits.hits.FirstOrDefault();
 
-            ElasticSearchResponse deserializedResponse = null;
-            try
-            {
-                deserializedResponse = JsonConvert.DeserializeObject<ElasticSearchResponse>(rawResponse);
-            }
-            catch (Exception ex)
-            {
-                log.LogError($"Failed to deserialize rawResponse for bookId={bookId}: {ex.Message}");
-                continue;
-            }
-
-            if (deserializedResponse?.Hits?.hits == null || !deserializedResponse.Hits.hits.Any())
-            {
-                log.LogWarning($"No hits found in rawResponse for bookId={bookId}. Skipping update.");
-                continue;
-            }
-
-            var firstHit = deserializedResponse.Hits.hits.FirstOrDefault();
             if (firstHit?._source == null)
             {
-                log.LogWarning($"_source is null in firstHit for bookId={bookId}. Skipping update.");
+                log.LogWarning($"F√∂rsta tr√§ffen saknar _source f√∂r bookId {bookId}");
+                booksProd.RemoveAt(i);
                 continue;
             }
 
-            var books = firstHit._source; // The 'books' object from your JSON
+            log.LogWarning($"Hittade bookId {bookId}");
+            if (bookId == "CA71387")
+            {
+                log.LogInformation($"books.Id: {firstHit._source?.Id}, books.Description: {firstHit._source?.SearchResultItem.Description}");
+            }
 
-            // 7. Update local 'book' from 'books'
+            var books = firstHit._source;
+
+            // INNAN du anv√§nder books, l√§gg in fler null-checks p√• f√§lt som kan saknas:
+            if (books.SearchResultItem == null)
+            {
+                log.LogWarning($"books.SearchResultItem √§r null f√∂r bookId {bookId}");
+                booksProd.RemoveAt(i);
+                continue;
+            }
+            if (books.SearchResultItem.Description == null)
+            {
+                log.LogWarning($"books.SearchResultItem.Description √§r null f√∂r bookId {bookId}");
+                booksProd.RemoveAt(i);
+                continue;
+            }
+
             if (books != null)
             {
                 book.LibraryId = bookId;
-                book.Description = books.SearchResultItem?.Description;
-                book.Language = books.SearchResultItem?.Language;
-                book.Author = books.SearchResultItem?.Author;
+                book.Description = books.SearchResultItem.Description;
+                book.Language = books.SearchResultItem.Language;
+                book.Author = books.SearchResultItem.Author;
+                book.Narrator = books.SearchResultItem.Narrator.FirstOrDefault().Name;
 
-                // If book.PublishingCompany is missing, extract from remark
-                if ((book.PublishingCompany == null || book.Publisher == "") && books.SearchResultItem != null)
+                if (book.PublishingCompany == null || book.Publisher == "")
                 {
                     book.PublishingCompany = Extract(books.SearchResultItem.Remark);
                 }
 
-                // If no published year, try extracting
-                if (book.PublishedYear == 0 && books.SearchResultItem != null)
+                if (book.PublishedYear == 0)
                 {
-                    var remark = books.SearchResultItem.Remark;
-                    if (!string.IsNullOrEmpty(remark))
-                    {
-                        book.PublishedYear = int.Parse(ExtractYear(remark));
-                    }
+                    book.PublishedYear = int.Parse(ExtractYear(books.SearchResultItem.Remark));
                 }
 
-                // If book.Author is null or empty, fallback to 'Editors'?
                 if (book.Author == null || !book.Author.Any())
                 {
-                    var authors = new List<Author>();
-                    var author = new Author();
+                    List<Author> authors = new List<Author>();
+                    Author author = new Author();
                     var firstEditor = books.Editors?.FirstOrDefault();
-                    if (firstEditor != null)
+
+                    if (firstEditor != null && !string.IsNullOrWhiteSpace(firstEditor.Name))
                     {
-                        author.Name = firstEditor.Name;
+                        author.Name = books.Editors.FirstOrDefault().Name;
+                    } else
+                    {
+                        author.Name = "F√∂rfattare saknas";
                     }
+
                     author.IsPrimaryContributor = true;
                     authors.Add(author);
                     book.Author = authors;
                 }
 
-                if (book.Format == "Punktskrift")
-                    book.Format = "Tryckt punktskrift";
+                if (book.Format == "Punktskrift") book.Format = "Tryckt punktskrift";
 
-                // Set Classification if missing
-                if ((string.IsNullOrEmpty(book.Classification))
-                    && books.Classification != null
-                    && books.Classification.Any())
+                if (book.Classification == null || book.Classification == "")
                 {
                     book.Classification = books.Classification.FirstOrDefault();
                 }
 
-                // AgeGroup
-                if (books.AgeGroup != "Adult")
+                if (books.TargetAudience != "Adult")
                 {
                     book.AgeGroup = "Juvenile";
                 }
@@ -701,11 +698,9 @@ public static class NyforvarvslistanFunction
                     book.AgeGroup = "Adult";
                 }
 
-                // Category: check if PublicationCategories array is valid
-                var firstPubCat = books.PublicationCategories?.FirstOrDefault();
-                if (!string.IsNullOrEmpty(firstPubCat) && firstPubCat.Contains("Fiction"))
+                if (books.PublicationCategories.FirstOrDefault().Contains("Fiction"))
                 {
-                    book.Category = "Skˆnlitteratur";
+                    book.Category = "Sk√∂nlitteratur";
                 }
                 else
                 {
@@ -714,79 +709,188 @@ public static class NyforvarvslistanFunction
             }
         }
 
-        // 8. After updating all books, generate XML
-        XmlGenerator xmlGenerator = new XmlGenerator();
 
-        var generatedFiles = new List<(string FileName, byte[] Content)>();
         var talkingBooks = booksProd.Where(b => b.LibraryId.StartsWith("C")).ToList();
         var brailleBooks = booksProd.Where(b => b.LibraryId.StartsWith("P")).ToList();
 
         log.LogInformation($"Found {talkingBooks.Count} talking books and {brailleBooks.Count} braille books.");
 
-        var currentDate = DateTime.Now;
-        string yearMonth = $"{currentDate:yyyy-MM}";
-
-        // Helper to generate file names
-        string GenerateFileName(string prefix, string suffix) => $"{prefix}{suffix}-{yearMonth}.xml";
-
-        // Generate XML for talking books
-        if (talkingBooks.Any())
+        var xmlGenerator = new XmlGenerator();
+        if (Environment.GetEnvironmentVariable("WEBSITE_CONTENTSHARE") != null)
         {
-            var tbFileNames = new List<string>
-        {
-            GenerateFileName("nyf-tb", ""),
-            GenerateFileName("nyf-tb-no-links", "-no-links"),
-            GenerateFileName("nyf-tb-no-links-swedishonly", "-no-links-swedishonly")
-        };
-
-            foreach (var fileName in tbFileNames)
+            if (talkingBooks.Any())
             {
-                byte[] xmlContent = xmlGenerator.GenerateXmlContent(talkingBooks, fileName);
-                generatedFiles.Add((fileName, xmlContent));
+                string tempPath = Path.GetTempPath();
+
+                xmlGenerator.SaveToFile(talkingBooks, Path.Combine(tempPath, "nyf-tb-" + DateTime.Now.Year + "-" + DateTime.Now.Month.ToString("00") + ".xml"));
+                xmlGenerator.SaveToFile(talkingBooks, Path.Combine(tempPath, "nyf-tb-no-links-" + DateTime.Now.Year + "-" + DateTime.Now.Month.ToString("00") + ".xml"));
+                xmlGenerator.SaveToFile(talkingBooks, Path.Combine(tempPath, "nyf-tb-no-links-swedishonly-" + DateTime.Now.Year + "-" + DateTime.Now.Month.ToString("00") + ".xml"));
+            }
+
+            if (brailleBooks.Any())
+            {
+                string tempPath = Path.GetTempPath();
+
+                xmlGenerator.SaveToFile(brailleBooks, Path.Combine(tempPath, "nyf-punkt-" + DateTime.Now.Year + "-" + DateTime.Now.Month.ToString("00") + ".xml"));
+                xmlGenerator.SaveToFile(brailleBooks, Path.Combine(tempPath, "nyf-punkt-no-links-" + DateTime.Now.Year + "-" + DateTime.Now.Month.ToString("00") + ".xml"));
+                xmlGenerator.SaveToFile(brailleBooks, Path.Combine(tempPath, "nyf-punkt-no-links-swedishonly-" + DateTime.Now.Year + "-" + DateTime.Now.Month.ToString("00") + ".xml"));
+            }
+        }
+        else
+        {
+
+            if (talkingBooks.Any())
+            {
+                xmlGenerator.SaveToFile(talkingBooks, "nyf-" + "tb-" + DateTime.Now.Year + "-" + DateTime.Now.Month.ToString("00") + ".xml");
+                xmlGenerator.SaveToFile(talkingBooks, "nyf-" + "tb-" + "no-links-" + DateTime.Now.Year + "-" + DateTime.Now.Month.ToString("00") + ".xml");
+                xmlGenerator.SaveToFile(talkingBooks, "nyf-" + "tb-" + "no-links-swedishonly-" + DateTime.Now.Year + "-" + DateTime.Now.Month.ToString("00") + ".xml");
+            }
+
+            if (brailleBooks.Any())
+            {
+                xmlGenerator.SaveToFile(brailleBooks, "nyf-" + "punkt-" + DateTime.Now.Year + "-" + DateTime.Now.Month.ToString("00") + ".xml");
+                xmlGenerator.SaveToFile(brailleBooks, "nyf-" + "punkt-" + "no-links-" + DateTime.Now.Year + "-" + DateTime.Now.Month.ToString("00") + ".xml");
+                xmlGenerator.SaveToFile(brailleBooks, "nyf-" + "punkt-" + "no-links-swedishonly-" + DateTime.Now.Year + "-" + DateTime.Now.Month.ToString("00") + ".xml");
+            }
+        }
+        List<string> generatedFiles = new List<string>();
+        if (Environment.GetEnvironmentVariable("WEBSITE_CONTENTSHARE") != null)
+        {
+            if (talkingBooks.Any())
+            {
+                string tempPath = Path.GetTempPath();
+
+                string talkingBooksFile = Path.Combine(tempPath, $"nyf-tb-{DateTime.Now:yyyy-MM}.xml");
+                generatedFiles.Add(talkingBooksFile);
+
+                string talkingBooksNoLinksFile = Path.Combine(tempPath, $"nyf-tb-no-links-{DateTime.Now:yyyy-MM}.xml");
+                generatedFiles.Add(talkingBooksNoLinksFile);
+
+                string talkingBooksSwedishOnlyFile = Path.Combine(tempPath, $"nyf-tb-no-links-swedishonly-{DateTime.Now:yyyy-MM}.xml");
+                generatedFiles.Add(talkingBooksSwedishOnlyFile);
+            }
+
+            if (brailleBooks.Any())
+            {
+                string tempPath = Path.GetTempPath();
+
+                string brailleBooksFile = Path.Combine(tempPath, $"nyf-punkt-{DateTime.Now:yyyy-MM}.xml");
+                generatedFiles.Add(brailleBooksFile);
+
+                string brailleBooksNoLinksFile = Path.Combine(tempPath, $"nyf-punkt-no-links-{DateTime.Now:yyyy-MM}.xml");
+                generatedFiles.Add(brailleBooksNoLinksFile);
+
+                string brailleBooksSwedishOnlyFile = Path.Combine(tempPath, $"nyf-punkt-no-links-swedishonly-{DateTime.Now:yyyy-MM}.xml");
+                generatedFiles.Add(brailleBooksSwedishOnlyFile);
+            }
+        }
+        else
+        {
+            if (talkingBooks.Any())
+            {
+                string talkingBooksFile = "nyf-tb-" + DateTime.Now.Year + "-" + DateTime.Now.Month.ToString("00") + ".xml";
+                generatedFiles.Add(talkingBooksFile);
+
+                string talkingBooksNoLinksFile = "nyf-tb-no-links-" + DateTime.Now.Year + "-" + DateTime.Now.Month.ToString("00") + ".xml";
+                generatedFiles.Add(talkingBooksNoLinksFile);
+
+                string talkingBooksSwedishOnlyFile = "nyf-tb-no-links-swedishonly-" + DateTime.Now.Year + "-" + DateTime.Now.Month.ToString("00") + ".xml";
+                generatedFiles.Add(talkingBooksSwedishOnlyFile);
+            }
+
+            if (brailleBooks.Any())
+            {
+                string brailleBooksFile = "nyf-punkt-" + DateTime.Now.Year + "-" + DateTime.Now.Month.ToString("00") + ".xml";
+                generatedFiles.Add(brailleBooksFile);
+
+                string brailleBooksNoLinksFile = "nyf-punkt-no-links-" + DateTime.Now.Year + "-" + DateTime.Now.Month.ToString("00") + ".xml";
+                generatedFiles.Add(brailleBooksNoLinksFile);
+
+                string brailleBooksSwedishOnlyFile = "nyf-punkt-no-links-swedishonly-" + DateTime.Now.Year + "-" + DateTime.Now.Month.ToString("00") + ".xml";
+                generatedFiles.Add(brailleBooksSwedishOnlyFile);
             }
         }
 
-        // Generate XML for braille books
-        if (brailleBooks.Any())
-        {
-            var pbFileNames = new List<string>
-        {
-            GenerateFileName("nyf-punkt", ""),
-            GenerateFileName("nyf-punkt-no-links", "-no-links"),
-            GenerateFileName("nyf-punkt-no-links-swedishonly", "-no-links-swedishonly")
-        };
 
-            foreach (var fileName in pbFileNames)
-            {
-                byte[] xmlContent = xmlGenerator.GenerateXmlContent(brailleBooks, fileName);
-                generatedFiles.Add((fileName, xmlContent));
-            }
+
+        if (generatedFiles.Any())
+        {
+            SendEmailWithAttachments(generatedFiles.ToArray(), email);
+            // SendEmailWithAttachments(generatedFiles.ToArray(), "otto.ewald@mtm.se");
         }
-
-        return generatedFiles;
     }
+
+
+    public static async void SendEmailWithAttachments(string[] filePaths, string emailAddress)
+    {
+        var client = new MailjetClient("8fc6ccd381fcb4ec47dc2980c44a99de", "e3f4b681f0dad6c3aa27fa3702d71449");
+
+        var message = new JObject
+        {
+            { "From", new JObject { { "Email", "erik.johansson@mtm.se" }, { "Name", "Erik Johansson" } } },
+            { "To", new JArray { new JObject { { "Email", emailAddress }, { "Name", "Nyf√∂rv√§rvslistan" } } } },
+            { "Subject", "Genererade xml-filer" },
+            { "TextPart", "H√§r kommer filerna." }
+        };
+
+        var attachments = new JArray();
+        foreach (var filePath in filePaths)
+        {
+            if (File.Exists(filePath))
+            {
+                var fileContent = Convert.ToBase64String(File.ReadAllBytes(filePath));
+                var attachment = new JObject
+            {
+                { "ContentType", "application/xml" },
+                { "Filename", Path.GetFileName(filePath) },
+                { "Base64Content", fileContent }
+            };
+                attachments.Add(attachment);
+            }
+        }
+
+        message["Attachments"] = attachments;
+
+        var request = new MailjetRequest
+        {
+            Resource = SendV31.Resource
+        }
+        .Property(Send.Messages, new JArray { message });
+
+        var response = await client.PostAsync(request);
+        if (response.IsSuccessStatusCode)
+        {
+            Console.WriteLine("Email sent successfully.");
+        }
+        else
+        {
+            Console.WriteLine($"Failed to send email. Status code: {response.StatusCode}, Error: {response.GetErrorMessage()}");
+            Console.WriteLine(response.GetData());
+        }
+    }
+
 
     private static readonly Dictionary<string, string> sabCategories = new Dictionary<string, string>
     {
-        { "A", "Bok- och biblioteksv‰sen" },
-        { "B", "Allm‰nt och blandat" },
+        { "A", "Bok- och biblioteksv√§sen" },
+        { "B", "Allm√§nt och blandat" },
         { "C", "Religion" },
         { "D", "Filosofi och psykologi" },
         { "E", "Uppfostran och undervisning" },
-        { "F", "SprÂkvetenskap" },
+        { "F", "Spr√•kvetenskap" },
         { "G", "Litteraturvetenskap" },
-        { "H", "Skˆnlitteratur" },
+        { "H", "Sk√∂nlitteratur" },
         { "I", "Konst, musik, teater, film, fotografi" },
         { "J", "Arkeologi" },
         { "K", "Historia" },
         { "L", "Biografi med genealogi" },
         { "M", "Etnografi, socialantropologi och etnologi" },
         { "N", "Geografi och lokalhistoria" },
-        { "O", "Samh‰lls- och r‰ttsvetenskap" },
+        { "O", "Samh√§lls- och r√§ttsvetenskap" },
         { "P", "Teknik, industri och kommunikationer" },
-        { "Q", "Ekonomi och n‰ringsv√§sen" },
+        { "Q", "Ekonomi och n√§ringsv√É¬§sen" },
         { "R", "Idrott, lek och spel" },
-        { "S", "Milit‰rv√§sen" },
+        { "S", "Milit√§rv√É¬§sen" },
         { "T", "Matematik" },
         { "U", "Naturvetenskap" },
         { "V", "Medicin" },
@@ -794,4 +898,100 @@ public static class NyforvarvslistanFunction
         { "Y", "Musikinspelningar" },
         { "Z", "Tidningar" }
     };
+
+    public static string ToElasticsearchFormat(this DateTime date)
+    {
+        return date.ToString("yyyy-MM-dd'T'HH:mm:ss.fffK");
+    }
+    private static string getCategoryBasedOnClassification(List<string> classifications)
+    {
+        if (classifications == null || !classifications.Any())
+            return "Allm√§nt och blandat";
+
+        string category = null;
+        foreach (var classification in classifications)
+        {
+            if (string.IsNullOrEmpty(classification)) continue;
+
+            var key = classification[0].ToString().ToUpper();
+            if (classification[0] == 'u' && classification.Length > 1)
+            {
+                key = classification[1].ToString().ToUpper();
+            }
+
+            if (sabCategories.TryGetValue(key, out category))
+            {
+                break;
+            }
+        }
+
+        if (category == null)  // Use Dewey, and match the Dewey classification to an SAB one, if no SAB classification was found
+        {
+            string fileContent = null;
+            string containerName = "nyforvarvslistan";
+            string blobName = "Dewey_SAB.txt";
+            SABDeweyMapper deweyMapper = null;
+
+            if (Environment.GetEnvironmentVariable("WEBSITE_CONTENTSHARE") != null)
+            {
+                // Running in Azure, read from Blob Storage
+                try
+                {
+                    BlobServiceClient blobServiceClient = new BlobServiceClient(storageConnectionString);
+                    BlobContainerClient containerClient = blobServiceClient.GetBlobContainerClient(containerName);
+                    BlobClient blobClient = containerClient.GetBlobClient(blobName);
+
+                    if (blobClient.Exists())
+                    {
+                        BlobDownloadInfo download = blobClient.Download();
+                        using (var reader = new StreamReader(download.Content, true))
+                        {
+                            fileContent = reader.ReadToEnd();
+                        }
+                    }
+                    else
+                    {
+                        throw new FileNotFoundException($"Blob '{blobName}' not found in container '{containerName}'.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    // Handle exception, log error, or rethrow as necessary
+                    throw new InvalidOperationException("Error reading Dewey_SAB.txt from Blob Storage", ex);
+                }
+
+                if (fileContent != null)
+                {
+                    deweyMapper = new SABDeweyMapper(fileContent);
+                    // Continue processing with deweyMapper
+                }
+            }
+            else
+            {
+                // Running locally
+                string filePath = Path.Combine(Environment.CurrentDirectory, "Dewey_SAB.txt");
+                deweyMapper = new SABDeweyMapper(filePath, true);
+                // Continue processing with deweyMapper
+            }
+
+            // Process classifications using deweyMapper
+            foreach (var classification in classifications)
+            {
+                var convertedClassification = deweyMapper.getSabCode(classification);
+                var key = convertedClassification[0].ToString().ToUpper();
+                if (convertedClassification[0] == 'u' && convertedClassification.Length > 1)
+                {
+                    key = convertedClassification[1].ToString().ToUpper();
+                }
+
+                if (sabCategories.TryGetValue(key, out category))
+                {
+                    break;
+                }
+            }
+        }
+
+
+        return category ?? "Allm√§nt och blandat";
+    }
 }
