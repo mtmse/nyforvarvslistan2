@@ -77,11 +77,6 @@ public static class NyforvarvslistanFunction
 
         var booksProduction = await GetProductionTitles(pssDict);
 
-        foreach (var book in booksProduction)
-        {
-            Console.WriteLine($"Classification: {book.Classification}    libraryId: {book.LibraryId}");
-        }
-
         try
         {
             CreateLists(log, booksProduction, email);
