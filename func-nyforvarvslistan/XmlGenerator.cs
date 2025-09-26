@@ -308,20 +308,20 @@ namespace func_nyforvarvslistan
 
             foreach (var ageGroup in groupedByAgeGroup)
             {
-                var ageGroupLevel = new XElement(ns + "level1", new XElement(ns + "h1", $"Böcker för {TranslateToSwedish(ageGroup.Key)}"));
+                var ageGroupLevel = new XElement(ns + "level1", new XAttribute("class", "part"), new XElement(ns + "h1", $"Böcker för {TranslateToSwedish(ageGroup.Key)}"));
                 XElement specialGroupLevel = null;
                 XElement fackGroupLevel = null;
                 if (ageGroup.Key == "SubType")
                 {
-                    specialGroupLevel = new XElement(ns + "level1", new XElement(ns + "h1", "Specialproduktioner"));
+                    specialGroupLevel = new XElement(ns + "level1", new XAttribute("class", "part"), new XElement(ns + "h1", "Specialproduktioner"));
                 }
 
                 if (ageGroup.Key == "Juvenile")
                 {
-                    fackGroupLevel = new XElement(ns + "level2", new XElement(ns + "h2", "Faktaböcker"));
+                    fackGroupLevel = new XElement(ns + "level2", new XAttribute("class", "chapter"), new XElement(ns + "h2", "Faktaböcker"));
                 } else
                 {
-                    fackGroupLevel = new XElement(ns + "level2", new XElement(ns + "h2", "Facklitteratur"));
+                    fackGroupLevel = new XElement(ns + "level2", new XAttribute("class", "chapter"), new XElement(ns + "h2", "Facklitteratur"));
                 }
 
                 var groupedByCategory = ageGroup
@@ -360,7 +360,7 @@ namespace func_nyforvarvslistan
                         if (categoryGroup.Key == "Skönlitteratur")
                         {
 
-                            var categoryLevel = new XElement(ns + "level2", new XElement(ns + "h2", categoryGroup.Key));
+                            var categoryLevel = new XElement(ns + "level2", new XAttribute("class", "chapter"), new XElement(ns + "h2", categoryGroup.Key));
                             var orderedBooks = categoryGroup.OrderBy(book =>
                             {
                                 var primaryAuthor = book.Author.FirstOrDefault(author => author.IsPrimaryContributor);
@@ -457,7 +457,8 @@ namespace func_nyforvarvslistan
                 new XElement(ns + "meta", new XAttribute("name", "dc:Title"), new XAttribute("content", title)),
                 new XElement(ns + "meta", new XAttribute("name", "dc:Language"), new XAttribute("content", "sv")),
                 new XElement(ns + "meta", new XAttribute("name", "dc:Publisher"), new XAttribute("content", "MTM")),
-                new XElement(ns + "meta", new XAttribute("name", "dc:Date"), new XAttribute("content", DateTime.Now.ToString("yyyy-MM-dd")))
+                new XElement(ns + "meta", new XAttribute("name", "dc:Date"), new XAttribute("content", DateTime.Now.ToString("yyyy-MM-dd"))),
+                new XElement(ns + "meta", new XAttribute("name", "dc:Creator"), new XAttribute("content", "MTM"))
             );
             root.Add(head);
 
@@ -469,7 +470,7 @@ namespace func_nyforvarvslistan
             XElement introLevel1 = null;
             if (filePath.Contains("punkt"))
             {
-                introLevel1 = new XElement(ns + "level1",
+                introLevel1 = new XElement(ns + "level1", new XAttribute("class", "part"),
                     new XElement(ns + "h1", "Inledning"),
                     new XElement(ns + "p", "Listan är uppdelad i 4 delar; Böcker för vuxna, Böcker för barn och ungdom, Specialproduktioner samt Böcker på andra språk än svenska. Dessa avsnitt ligger på rubriknivå 1."),
                     new XElement(ns + "p", "Böcker för vuxna är uppdelad i avsnitten Skönlitteratur och Facklitteratur. Böcker för barn och ungdom är uppdelad i avsnitten Skönlitteratur och Faktaböcker. Dessa avsnitt ligger på rubriknivå 2."),
@@ -481,7 +482,7 @@ namespace func_nyforvarvslistan
             }
             else
             {
-                introLevel1 = new XElement(ns + "level1",
+                introLevel1 = new XElement(ns + "level1", new XAttribute("class", "part"),
                     new XElement(ns + "h1", "Inledning"),
                     new XElement(ns + "p", "Listan är uppdelad i 3 delar; Böcker för vuxna, Böcker för barn och ungdom och Böcker på andra språk än svenska. Dessa avsnitt ligger på rubriknivå 1."),
                     new XElement(ns + "p", "Böcker för vuxna är uppdelad i avsnitten Skönlitteratur och Facklitteratur. Böcker för barn och ungdom är uppdelad i avsnitten Skönlitteratur och Faktaböcker. Dessa avsnitt ligger på rubriknivå 2."),
@@ -554,12 +555,12 @@ namespace func_nyforvarvslistan
             }
             */
 
-            var section = new XElement(ns + "level1", new XElement(ns + "h1", "Böcker på andra språk än svenska"));
+            var section = new XElement(ns + "level1", new XAttribute("class", "part"), new XElement(ns + "h1", "Böcker på andra språk än svenska"));
 
             var groupedByAgeGroup = languageGroup.GroupBy(b => b.AgeGroup).OrderBy(g => g.Key == "Adult" ? 0 : 1);
             foreach (var ageGroup in groupedByAgeGroup)
             {
-                var ageGroupLevel = new XElement(ns + "level2", new XElement(ns + "h2", $"Böcker för {TranslateToSwedish(ageGroup.Key)}"));
+                var ageGroupLevel = new XElement(ns + "level2", new XAttribute("class", "chapter"), new XElement(ns + "h2", $"Böcker för {TranslateToSwedish(ageGroup.Key)}"));
                 section.Add(ageGroupLevel);
                 var orderedBooks = ageGroup.OrderBy(book =>
                 {
@@ -608,7 +609,7 @@ namespace func_nyforvarvslistan
 
             if (filePath.Contains("punkt"))
             {
-                introLevel1 = new XElement(ns + "level1",
+                introLevel1 = new XElement(ns + "level1", new XAttribute("class", "part"),
                 new XElement(ns + "h1", "Inledning"),
                 new XElement(ns + "p", "Listan är uppdelad i 4 delar; Böcker för vuxna, Böcker för barn och ungdom, Specialproduktioner samt Böcker på andra språk än svenska. Dessa avsnitt ligger på rubriknivå 1."),
                 new XElement(ns + "p", "Böcker för vuxna är uppdelad i avsnitten Skönlitteratur och Facklitteratur. Böcker för barn och ungdom är uppdelad i avsnitten Skönlitteratur och Faktaböcker. Dessa avsnitt ligger på rubriknivå 2."),
@@ -620,7 +621,7 @@ namespace func_nyforvarvslistan
             }
             else
             {
-                introLevel1 = new XElement(ns + "level1",
+                introLevel1 = new XElement(ns + "level1", new XAttribute("class", "part"),
                     new XElement(ns + "h1", "Inledning"),
                     new XElement(ns + "p", "Listan är uppdelad i 3 delar; Böcker för vuxna, Böcker för barn och ungdom och Böcker på andra språk än svenska. Dessa avsnitt ligger på rubriknivå 1."),
                     new XElement(ns + "p", "Böcker för vuxna är uppdelad i avsnitten Skönlitteratur och Facklitteratur. Böcker för barn och ungdom är uppdelad i avsnitten Skönlitteratur och Faktaböcker. Dessa avsnitt ligger på rubriknivå 2."),
