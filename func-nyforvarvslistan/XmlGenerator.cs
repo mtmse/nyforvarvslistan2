@@ -457,8 +457,8 @@ namespace func_nyforvarvslistan
                 new XElement(ns + "meta", new XAttribute("name", "dc:Title"), new XAttribute("content", title)),
                 new XElement(ns + "meta", new XAttribute("name", "dc:Language"), new XAttribute("content", "sv")),
                 new XElement(ns + "meta", new XAttribute("name", "dc:Publisher"), new XAttribute("content", "MTM")),
-                new XElement(ns + "meta", new XAttribute("name", "dc:Date"), new XAttribute("content", DateTime.Now.ToString("yyyy-MM-dd"))),
-                new XElement(ns + "meta", new XAttribute("name", "dc:Creator"), new XAttribute("content", "MTM"))
+                new XElement(ns + "meta", new XAttribute("name", "dc:Creator"), new XAttribute("content", "MTM")),
+                new XElement(ns + "meta", new XAttribute("name", "dc:Date"), new XAttribute("content", DateTime.Now.ToString("yyyy-MM-dd")))
             );
             root.Add(head);
 
@@ -596,6 +596,7 @@ namespace func_nyforvarvslistan
                 new XElement(ns + "meta", new XAttribute("name", "dc:Title"), new XAttribute("content", title)),
                 new XElement(ns + "meta", new XAttribute("name", "dc:Language"), new XAttribute("content", "sv")),
                 new XElement(ns + "meta", new XAttribute("name", "dc:Publisher"), new XAttribute("content", "MTM")),
+                new XElement(ns + "meta", new XAttribute("name", "dc:Creator"), new XAttribute("content", "MTM")),
                 new XElement(ns + "meta", new XAttribute("name", "dc:Date"), new XAttribute("content", DateTime.Now.ToString("yyyy-MM-dd")))
             );
             root.Add(head);
