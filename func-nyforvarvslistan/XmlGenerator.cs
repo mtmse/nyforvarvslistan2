@@ -338,7 +338,7 @@ namespace func_nyforvarvslistan
                         .OrderBy(g => CategoryOrder.IndexOf(g.Key));
                     foreach (var pssGroup in groupedByPss)
                     {
-                        var pssLevel = new XElement(ns + "level2", new XElement(ns + "h2", pssGroup.Key));
+                        var pssLevel = new XElement(ns + "level2", new XAttribute("class", "chapter"), new XElement(ns + "h2", pssGroup.Key));
                         var orderedBooks = pssGroup.OrderBy(book =>
                         {
                             var primaryAuthor = book.Author.FirstOrDefault(author => author.IsPrimaryContributor);
