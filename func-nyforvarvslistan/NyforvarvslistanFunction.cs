@@ -67,12 +67,12 @@ public static class NyforvarvslistanFunction
 
         Dictionary<int, string> pssDict = new Dictionary<int, string>
         {
-            { 21, "Interfolierad bok." },
-            { 22, "Bredvidbok i ficka." },
-            { 23, "Bok med inklistrad punktskrift." },
-            { 25, "Punktskriftsbok för lästräning." },
-            { 26, "Punktskriftsbok med bilder och storstil." },
-            { 27, "Punktskriftsbok, bredvidbok, lätt att läsa." },
+            { 21, "Interfolierad bok" },
+            { 22, "Bredvidbok i ficka" },
+            { 23, "Bok med inklistrad punktskrift" },
+            { 25, "Punktskriftsbok för lästräning" },
+            { 26, "Punktskriftsbok med bilder och storstil" },
+            { 27, "Punktskriftsbok, bredvidbok, lätt att läsa" },
         };
 
         var booksProduction = await GetProductionTitles(pssDict);
