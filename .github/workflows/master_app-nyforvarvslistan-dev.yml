@@ -62,18 +62,3 @@ jobs:
           app-name: 'app-nyforvarvslistan-dev'
           slot-name: 'Production'
           package: '${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}/output'
-
-      - name: Login to Azure (prod - annan tenant)
-        uses: azure/login@v1
-        with:
-          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_PROD }}
-          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_PROD }}
-          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_PROD }}
-
-      - name: Deploy to Azure Functions (prod)
-        uses: Azure/functions-action@v1
-        with:
-          app-name: 'app-nyforvarvslistan-prod'
-          slot-name: 'Production'
-          package: '${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}/output'
-
